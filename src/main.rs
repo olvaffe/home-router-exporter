@@ -6,6 +6,7 @@
 //! Home Router Exporter is a Prometheus exporter designed for home routers.
 
 mod procfs;
+mod sysfs;
 
 fn main() {
     let stat = procfs::parse_stat().expect("failed to parse /proc/stat");
@@ -43,5 +44,10 @@ fn main() {
             info.free / 1024,
             info.avail / 1024
         );
+    }
+
+    let zones = sysfs::parse_class_thermal().expect("failed to parse /sys/class/thermal");
+    for zone in zones {
+        println!("thermal zone {}: {} {}", zone.zone, zone.name, zone.temp);
     }
 }
