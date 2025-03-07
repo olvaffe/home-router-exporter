@@ -1,6 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
+use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
 
@@ -21,6 +22,14 @@ pub struct ProcDiskStat {
     pub name: String,
     pub read_bytes: u64,
     pub write_bytes: u64,
+}
+
+pub struct ProcMountInfo {
+    pub mount_source: String,
+    pub mount_point: String,
+    pub total: u64,
+    pub free: u64,
+    pub avail: u64,
 }
 
 pub fn parse_stat() -> std::io::Result<ProcStat> {
@@ -151,4 +160,77 @@ pub fn parse_diskstats() -> std::io::Result<Vec<ProcDiskStat>> {
     }
 
     Ok(stats)
+}
+
+pub fn parse_self_mountinfo() -> std::io::Result<Vec<ProcMountInfo>> {
+    let mut infos: Vec<ProcMountInfo> = Vec::new();
+
+    let f = File::open("/proc/self/mountinfo")?;
+    let reader = BufReader::new(f);
+
+    for line in reader.lines() {
+        let line = line?;
+        let cols = line.split_whitespace();
+
+        let mut cols = cols.skip(4);
+        let col4 = cols
+            .next()
+            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+
+        let mut cols = cols.skip(1);
+        while let Some(col) = cols.next() {
+            if col == "-" {
+                break;
+            }
+        }
+
+        let src = cols
+            .nth(1)
+            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+        if !src.starts_with("/") {
+            continue;
+        }
+
+        let mut skip = false;
+        for info in &mut infos {
+            if info.mount_source == src {
+                skip = true;
+                if info.mount_point.starts_with(col4) {
+                    info.mount_point = col4.to_string();
+                }
+                break;
+            }
+        }
+        if skip {
+            continue;
+        }
+
+        let info = ProcMountInfo {
+            mount_source: src.to_string(),
+            mount_point: col4.to_string(),
+            total: 0,
+            free: 0,
+            avail: 0,
+        };
+
+        infos.push(info);
+    }
+
+    for info in &mut infos {
+        let path = CString::new(&*info.mount_point).unwrap();
+
+        let mut stat = std::mem::MaybeUninit::<libc::statfs64>::uninit();
+        let ret = unsafe { libc::statfs64(path.as_ptr(), stat.as_mut_ptr()) };
+        if ret != 0 {
+            println!("nonono");
+            return Err(Error::new(ErrorKind::InvalidData, "bad"));
+        }
+        let stat = unsafe { stat.assume_init() };
+
+        info.total = stat.f_blocks * stat.f_bsize as u64;
+        info.free = stat.f_bfree * stat.f_bsize as u64;
+        info.avail = stat.f_bavail * stat.f_bsize as u64;
+    }
+
+    Ok(infos)
 }
