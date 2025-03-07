@@ -4,6 +4,7 @@
 use prometheus::{Encoder, IntCounter, Opts, TextEncoder, register_int_counter};
 
 pub struct Prom {
+    encoder: TextEncoder,
     counter: IntCounter,
 }
 
@@ -15,18 +16,25 @@ impl Prom {
         let test_counter = register_int_counter!(test_opts).unwrap();
 
         Prom {
+            encoder: TextEncoder::new(),
             counter: test_counter,
         }
     }
 
-    pub fn collect(self: &Self) {
+    pub fn format_type(&self) -> &str {
+        self.encoder.format_type()
+    }
+
+    pub fn update(&self) {
         self.counter.inc();
+    }
 
-        let encoder = TextEncoder::new();
-        let metric_families = prometheus::gather();
-        let mut buffer = vec![];
-        encoder.encode(&metric_families, &mut buffer).unwrap();
+    pub fn gather(&self) -> Vec<u8> {
+        let metrics = prometheus::gather();
 
-        println!("{:?}", std::str::from_utf8(&buffer).unwrap());
+        let mut buf = Vec::new();
+        self.encoder.encode(&metrics, &mut buf).unwrap();
+
+        buf
     }
 }

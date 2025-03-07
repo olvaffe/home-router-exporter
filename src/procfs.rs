@@ -68,7 +68,9 @@ pub fn parse_stat() -> std::io::Result<ProcStat> {
         .parse::<u64>()
         .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
 
+    // SAFETY:
     let nrproc = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_CONF) } as u64;
+    // SAFETY:
     let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as u64;
 
     let stat = ProcStat {
@@ -220,11 +222,13 @@ pub fn parse_self_mountinfo() -> std::io::Result<Vec<ProcMountInfo>> {
         let path = CString::new(&*info.mount_point).unwrap();
 
         let mut stat = std::mem::MaybeUninit::<libc::statfs64>::uninit();
+        // SAFETY:
         let ret = unsafe { libc::statfs64(path.as_ptr(), stat.as_mut_ptr()) };
         if ret != 0 {
             println!("nonono");
             return Err(Error::new(ErrorKind::InvalidData, "bad"));
         }
+        // SAFETY:
         let stat = unsafe { stat.assume_init() };
 
         info.total = stat.f_blocks * stat.f_bsize as u64;

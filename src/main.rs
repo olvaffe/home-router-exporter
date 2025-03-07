@@ -6,6 +6,7 @@
 //! Home Router Exporter is a Prometheus exporter designed for home routers.
 
 mod ethtool;
+mod hyper;
 mod procfs;
 mod prometheus;
 mod rtnetlink;
@@ -69,7 +70,6 @@ fn main() {
         );
     }
 
-    let prom = prometheus::Prom::new();
-    prom.collect();
-    prom.collect();
+    let prom = crate::prometheus::Prom::new();
+    let _ = hyper::run(prom);
 }
