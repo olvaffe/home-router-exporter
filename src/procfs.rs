@@ -10,6 +10,12 @@ pub struct ProcStat {
     pub idle_ms: u64,
 }
 
+pub struct ProcDiskStat {
+    pub name: String,
+    pub read_bytes: u64,
+    pub write_bytes: u64,
+}
+
 pub fn parse_stat() -> std::io::Result<ProcStat> {
     let f = File::open("/proc/stat")?;
     let mut reader = BufReader::new(f);
@@ -36,15 +42,15 @@ pub fn parse_stat() -> std::io::Result<ProcStat> {
         return Err(Error::new(ErrorKind::InvalidData, "bad"));
     }
 
-        let user_ticks = user_ticks
-            .parse::<u64>()
-            .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
-        let system_ticks = system_ticks
-            .parse::<u64>()
-            .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
-        let idle_ticks = idle_ticks
-            .parse::<u64>()
-            .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
+    let user_ticks = user_ticks
+        .parse::<u64>()
+        .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
+    let system_ticks = system_ticks
+        .parse::<u64>()
+        .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
+    let idle_ticks = idle_ticks
+        .parse::<u64>()
+        .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
 
     let nrproc = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_CONF) } as u64;
     let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as u64;
@@ -56,4 +62,49 @@ pub fn parse_stat() -> std::io::Result<ProcStat> {
     };
 
     Ok(stat)
+}
+
+pub fn parse_diskstats() -> std::io::Result<Vec<ProcDiskStat>> {
+    let mut stats = Vec::new();
+
+    let f = File::open("/proc/diskstats")?;
+    let reader = BufReader::new(f);
+
+    for line in reader.lines() {
+        let line = line?;
+        let cols = line.split_whitespace();
+
+        let mut cols = cols.skip(2);
+        let col2 = cols
+            .next()
+            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+        let mut cols = cols.skip(2);
+        let col5 = cols
+            .next()
+            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+        let mut cols = cols.skip(3);
+        let col9 = cols
+            .next()
+            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+
+        let name = col2.to_string();
+        let read_secs = col5
+            .parse::<u64>()
+            .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
+        let write_secs = col9
+            .parse::<u64>()
+            .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
+
+        if read_secs == 0 && write_secs == 0 {
+            continue;
+        }
+
+        stats.push(ProcDiskStat {
+            name: name.to_string(),
+            read_bytes: read_secs * 512,
+            write_bytes: write_secs * 512,
+        })
+    }
+
+    Ok(stats)
 }
