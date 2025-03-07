@@ -10,6 +10,13 @@ pub struct ProcStat {
     pub idle_ms: u64,
 }
 
+pub struct ProcMemInfo {
+    pub mem_total_kb: u64,
+    pub mem_avail_kb: u64,
+    pub swap_total_kb: u64,
+    pub swap_free_kb: u64,
+}
+
 pub struct ProcDiskStat {
     pub name: String,
     pub read_bytes: u64,
@@ -62,6 +69,43 @@ pub fn parse_stat() -> std::io::Result<ProcStat> {
     };
 
     Ok(stat)
+}
+
+pub fn parse_meminfo() -> std::io::Result<ProcMemInfo> {
+    let f = File::open("/proc/meminfo")?;
+    let reader = BufReader::new(f);
+
+    let mut info = ProcMemInfo {
+        mem_total_kb: 0,
+        mem_avail_kb: 0,
+        swap_total_kb: 0,
+        swap_free_kb: 0,
+    };
+    for line in reader.lines() {
+        let line = line?;
+
+        let get_u64 = |line: &str| {
+            let col1 = line
+                .split_whitespace()
+                .nth(1)
+                .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+            col1.parse::<u64>()
+                .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))
+        };
+
+        if line.starts_with("MemTotal:") {
+            info.mem_total_kb = get_u64(&line)?;
+        } else if line.starts_with("MemAvailable:") {
+            info.mem_avail_kb = get_u64(&line)?;
+        } else if line.starts_with("SwapTotal:") {
+            info.swap_total_kb = get_u64(&line)?;
+        } else if line.starts_with("SwapFree:") {
+            info.swap_free_kb = get_u64(&line)?;
+            break;
+        }
+    }
+
+    Ok(info)
 }
 
 pub fn parse_diskstats() -> std::io::Result<Vec<ProcDiskStat>> {
