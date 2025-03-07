@@ -5,7 +5,8 @@ edition = "2024"
 
 [dependencies]
 libc = "0.2"
+neli = "0.7.0-rc3"
 
-[workspace.lints.clippy]
+[lints.clippy]
 multiple_unsafe_ops_per_block = "deny"
 undocumented_unsafe_blocks = "deny"
