@@ -7,6 +7,7 @@
 
 mod ethtool;
 mod procfs;
+mod prometheus;
 mod rtnetlink;
 mod sysfs;
 
@@ -60,6 +61,15 @@ fn main() {
 
     let ifaces = rtnetlink::parse_rtnetlink().expect("failed to parse rtnetlink");
     for iface in ifaces {
-        println!("nic {}: rx {}KB tx {}KB", iface.name, iface.rx / 1024, iface.tx / 1024);
+        println!(
+            "nic {}: rx {}KB tx {}KB",
+            iface.name,
+            iface.rx / 1024,
+            iface.tx / 1024
+        );
     }
+
+    let prom = prometheus::Prom::new();
+    prom.collect();
+    prom.collect();
 }

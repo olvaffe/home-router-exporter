@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 libc = "0.2"
 neli = "0.7.0-rc3"
+prometheus = "0.13"
 
 [lints.clippy]
 multiple_unsafe_ops_per_block = "deny"
