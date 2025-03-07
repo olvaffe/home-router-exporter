@@ -1,7 +1,6 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use libc;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
 
@@ -47,12 +46,13 @@ pub fn parse_stat() -> std::io::Result<ProcStat> {
             .parse::<u64>()
             .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
 
+    let nrproc = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_CONF) } as u64;
     let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as u64;
 
     let stat = ProcStat {
-        user_ms: user_ticks * 1000 / clk_tck,
-        system_ms: system_ticks * 1000 / clk_tck,
-        idle_ms: idle_ticks * 1000 / clk_tck,
+        user_ms: user_ticks * 1000 / clk_tck / nrproc,
+        system_ms: system_ticks * 1000 / clk_tck / nrproc,
+        idle_ms: idle_ticks * 1000 / clk_tck / nrproc,
     };
 
     Ok(stat)
