@@ -7,6 +7,7 @@
 
 mod ethtool;
 mod procfs;
+mod rtnetlink;
 mod sysfs;
 
 fn main() {
@@ -55,5 +56,10 @@ fn main() {
     let speeds = ethtool::parse_ethtool().expect("failed to parse ethtool");
     for speed in speeds {
         println!("nic {}: {}", speed.name, speed.speed);
+    }
+
+    let ifaces = rtnetlink::parse_rtnetlink().expect("failed to parse rtnetlink");
+    for iface in ifaces {
+        println!("nic {}: rx {}KB tx {}KB", iface.name, iface.rx / 1024, iface.tx / 1024);
     }
 }
