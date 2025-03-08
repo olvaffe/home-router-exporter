@@ -13,16 +13,6 @@ mod rtnetlink;
 mod sysfs;
 
 fn main() {
-    let diskstats = procfs::parse_diskstats().expect("failed to parse /proc/diskstats");
-    for stat in diskstats {
-        println!(
-            "{}: read {}KB write {}KB",
-            stat.name,
-            stat.read_bytes / 1024,
-            stat.write_bytes / 1024
-        );
-    }
-
     let zones = sysfs::parse_class_thermal().expect("failed to parse /sys/class/thermal");
     for zone in zones {
         println!("thermal zone {}: {} {}", zone.zone, zone.name, zone.temp);

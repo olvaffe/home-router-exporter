@@ -22,6 +22,10 @@ pub struct Prom {
     /* filesystem */
     fs_total_kb: IntGaugeVec,
     fs_available_kb: IntGaugeVec,
+
+    /* io */
+    io_read_kb: IntGaugeVec,
+    io_write_kb: IntGaugeVec,
 }
 
 impl Prom {
@@ -78,6 +82,22 @@ impl Prom {
         )
         .unwrap();
 
+        /* io */
+        let io_read_kb = register_int_gauge_vec!(
+            Opts::new("read_kb", "Total read size")
+                .namespace(NAMESPACE)
+                .subsystem("io"),
+            &["block"]
+        )
+        .unwrap();
+        let io_write_kb = register_int_gauge_vec!(
+            Opts::new("write_kb", "Total write size")
+                .namespace(NAMESPACE)
+                .subsystem("io"),
+            &["block"]
+        )
+        .unwrap();
+
         Prom {
             encoder,
             cpu_idle_ms,
@@ -87,6 +107,8 @@ impl Prom {
             swap_free_kb,
             fs_total_kb,
             fs_available_kb,
+            io_read_kb,
+            io_write_kb,
         }
     }
 
@@ -98,6 +120,7 @@ impl Prom {
         self.update_cpu();
         self.update_memory();
         self.update_fs();
+        self.update_io();
     }
 
     fn update_cpu(&self) {
@@ -127,6 +150,18 @@ impl Prom {
             self.fs_available_kb
                 .with_label_values(&[&info.mount_source, &info.mount_point])
                 .set((info.avail / 1024).try_into().unwrap());
+        }
+    }
+
+    fn update_io(&self) {
+        let diskstats = crate::procfs::parse_diskstats().expect("failed to parse /proc/diskstats");
+        for stat in diskstats {
+            self.io_read_kb
+                .with_label_values(&[&stat.name])
+                .set((stat.read_bytes / 1024).try_into().unwrap());
+            self.io_write_kb
+                .with_label_values(&[&stat.name])
+                .set((stat.write_bytes / 1024).try_into().unwrap());
         }
     }
 
