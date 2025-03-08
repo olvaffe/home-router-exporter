@@ -1,6 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
+use anyhow::{Result, anyhow};
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
@@ -33,41 +34,24 @@ pub struct ProcMountInfo {
     pub avail: u64,
 }
 
-pub fn parse_stat(procfs: &Path) -> std::io::Result<ProcStat> {
-    let f = File::open(procfs.join("stat"))?;
-    let mut reader = BufReader::new(f);
-
+pub fn parse_stat(mut reader: impl BufRead) -> Result<ProcStat> {
     let mut line = String::new();
     reader.read_line(&mut line)?;
 
     let mut cols = line.split_whitespace();
-    let cpu = cols
-        .next()
-        .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
-    let user_ticks = cols
-        .next()
-        .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+    let cpu = cols.next().ok_or(anyhow!("bad"))?;
+    let user_ticks = cols.next().ok_or(anyhow!("bad"))?;
     cols.next();
-    let system_ticks = cols
-        .next()
-        .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
-    let idle_ticks = cols
-        .next()
-        .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+    let system_ticks = cols.next().ok_or(anyhow!("bad"))?;
+    let idle_ticks = cols.next().ok_or(anyhow!("bad"))?;
 
     if cpu != "cpu" {
-        return Err(Error::new(ErrorKind::InvalidData, "bad"));
+        return Err(anyhow!("bad"));
     }
 
-    let user_ticks = user_ticks
-        .parse::<u64>()
-        .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
-    let system_ticks = system_ticks
-        .parse::<u64>()
-        .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
-    let idle_ticks = idle_ticks
-        .parse::<u64>()
-        .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
+    let user_ticks = user_ticks.parse::<u64>().map_err(|_| anyhow!("bad"))?;
+    let system_ticks = system_ticks.parse::<u64>().map_err(|_| anyhow!("bad"))?;
+    let idle_ticks = idle_ticks.parse::<u64>().map_err(|_| anyhow!("bad"))?;
 
     // SAFETY:
     let nrproc = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_CONF) } as u64;
@@ -241,8 +225,9 @@ pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>
 }
 
 impl super::Linux {
-    pub fn parse_stat(&self) -> std::io::Result<ProcStat> {
-        parse_stat(&self.procfs_path)
+    pub fn parse_stat(&self) -> Result<ProcStat> {
+        let reader = self.procfs_open("stat")?;
+        Ok(parse_stat(reader)?)
     }
 
     pub fn parse_meminfo(&self) -> std::io::Result<ProcMemInfo> {

@@ -6,8 +6,9 @@ mod procfs;
 mod rtnetlink;
 mod sysfs;
 
+use anyhow::{Context, Result};
 use neli::{consts::socket::NlFamily, router::synchronous::NlRouter};
-use std::path;
+use std::{fs, io, path};
 
 pub struct Linux {
     procfs_path: path::PathBuf,
@@ -41,5 +42,11 @@ impl Linux {
             genl_sock,
             ethtool_id,
         }
+    }
+
+    fn procfs_open(&self, file: &str) -> Result<impl io::BufRead> {
+        let path = self.procfs_path.join(file);
+        let fp = fs::File::open(&path).with_context(|| format!("failed to open {:?}", path))?;
+        Ok(io::BufReader::new(fp))
     }
 }
