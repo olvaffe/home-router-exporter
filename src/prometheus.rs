@@ -33,6 +33,7 @@ pub struct Prom {
     /* net */
     net_rx_kb: IntGaugeVec,
     net_tx_kb: IntGaugeVec,
+    net_link_speed: IntGaugeVec,
 }
 
 impl Prom {
@@ -129,6 +130,13 @@ impl Prom {
             &["netdev"]
         )
         .unwrap();
+        let net_link_speed = register_int_gauge_vec!(
+            Opts::new("link_speed", "Link speed")
+                .namespace(NAMESPACE)
+                .subsystem("net"),
+            &["netdev"]
+        )
+        .unwrap();
 
         Prom {
             encoder,
@@ -144,6 +152,7 @@ impl Prom {
             io_write_kb,
             net_rx_kb,
             net_tx_kb,
+            net_link_speed,
         }
     }
 
@@ -221,6 +230,13 @@ impl Prom {
             self.net_tx_kb
                 .with_label_values(&[&iface.name])
                 .set((iface.tx / 1024).try_into().unwrap());
+        }
+
+        let speeds = crate::ethtool::parse_ethtool().expect("failed to parse ethtool");
+        for speed in speeds {
+            self.net_link_speed
+                .with_label_values(&[&speed.name])
+                .set((speed.speed).try_into().unwrap());
         }
     }
 
