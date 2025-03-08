@@ -10,7 +10,7 @@ mod linux;
 mod prometheus;
 
 fn main() {
-    let lin = linux::Linux::new("/proc", "/sysfs");
+    let lin = linux::Linux::new("/proc", "/sys");
     let prom = prometheus::Prom::new(lin);
     let _ = hyper::run(prom);
 }

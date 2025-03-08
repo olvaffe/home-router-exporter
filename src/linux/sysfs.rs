@@ -25,7 +25,7 @@ fn read_u64<P: AsRef<Path>>(path: P) -> std::io::Result<u64> {
 pub fn parse_class_thermal(sysfs: &Path) -> std::io::Result<Vec<SysThermalZone>> {
     let mut zones = Vec::new();
 
-    let zone_entries = std::fs::read_dir("/sys/class/thermal")?;
+    let zone_entries = std::fs::read_dir(sysfs.join("class/thermal"))?;
     for zone_entry in zone_entries {
         let zone_entry = zone_entry?;
 
