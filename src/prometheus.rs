@@ -226,7 +226,7 @@ impl Prom {
     }
 
     fn update_net(&self) {
-        let ifaces = crate::rtnetlink::parse_links().expect("failed to parse rtnetlink");
+        let ifaces = self.lin.parse_links().expect("failed to parse rtnetlink");
         for iface in ifaces {
             self.net_rx_kb
                 .with_label_values(&[&iface.name])
@@ -243,7 +243,7 @@ impl Prom {
                 .set((speed.speed).try_into().unwrap());
         }
 
-        let routes = crate::rtnetlink::parse_routes().expect("failed to parse routes");
+        let routes = self.lin.parse_routes().expect("failed to parse routes");
         for route in routes {
             println!("gateway: {:?} oif {}", route.gateway, route.oif);
         }

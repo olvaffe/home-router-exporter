@@ -136,3 +136,13 @@ pub fn parse_routes() -> Result<Vec<Route>, Box<dyn std::error::Error>> {
 
     Ok(routes)
 }
+
+impl super::Linux {
+    pub fn parse_links(&self) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
+        parse_links()
+    }
+
+    pub fn parse_routes(&self) -> Result<Vec<Route>, Box<dyn std::error::Error>> {
+        parse_routes()
+    }
+}

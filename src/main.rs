@@ -9,7 +9,6 @@ mod hyper;
 mod linux;
 mod procfs;
 mod prometheus;
-mod rtnetlink;
 mod sysfs;
 
 fn main() {

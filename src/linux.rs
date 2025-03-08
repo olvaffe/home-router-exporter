@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 mod ethtool;
+mod rtnetlink;
 
 use neli::{consts::socket::NlFamily, router::synchronous::NlRouter};
 use std::path;
