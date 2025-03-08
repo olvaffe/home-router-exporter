@@ -19,10 +19,18 @@ pub struct Linux {
     ethtool_id: u16,
 }
 
+fn nl_socket(family: NlFamily) -> NlRouter {
+    let (sock, _) = NlRouter::connect(family, None, neli::utils::Groups::empty()).unwrap();
+    sock.enable_ext_ack(true).unwrap();
+    sock.enable_strict_checking(true).unwrap();
+
+    sock
+}
+
 impl Linux {
     pub fn new(procfs_path: impl AsRef<path::Path>, sysfs_path: impl AsRef<path::Path>) -> Self {
-        let rt_sock = Self::nl_socket(NlFamily::Route);
-        let genl_sock = Self::nl_socket(NlFamily::Generic);
+        let rt_sock = nl_socket(NlFamily::Route);
+        let genl_sock = nl_socket(NlFamily::Generic);
 
         let ethtool_id = genl_sock.resolve_genl_family("ethtool").unwrap();
 
@@ -33,13 +41,5 @@ impl Linux {
             genl_sock,
             ethtool_id,
         }
-    }
-
-    fn nl_socket(family: NlFamily) -> NlRouter {
-        let (sock, _) = NlRouter::connect(family, None, neli::utils::Groups::empty()).unwrap();
-        sock.enable_ext_ack(true).unwrap();
-        sock.enable_strict_checking(true).unwrap();
-
-        sock
     }
 }
