@@ -1,7 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
@@ -32,39 +32,6 @@ pub struct ProcMountInfo {
     pub total: u64,
     pub free: u64,
     pub avail: u64,
-}
-
-pub fn parse_stat(mut reader: impl BufRead) -> Result<ProcStat> {
-    let mut line = String::new();
-    reader.read_line(&mut line)?;
-
-    let mut cols = line.split_whitespace();
-    let cpu = cols.next().ok_or(anyhow!("bad"))?;
-    let user_ticks = cols.next().ok_or(anyhow!("bad"))?;
-    cols.next();
-    let system_ticks = cols.next().ok_or(anyhow!("bad"))?;
-    let idle_ticks = cols.next().ok_or(anyhow!("bad"))?;
-
-    if cpu != "cpu" {
-        return Err(anyhow!("bad"));
-    }
-
-    let user_ticks = user_ticks.parse::<u64>().map_err(|_| anyhow!("bad"))?;
-    let system_ticks = system_ticks.parse::<u64>().map_err(|_| anyhow!("bad"))?;
-    let idle_ticks = idle_ticks.parse::<u64>().map_err(|_| anyhow!("bad"))?;
-
-    // SAFETY:
-    let nrproc = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_CONF) } as u64;
-    // SAFETY:
-    let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as u64;
-
-    let stat = ProcStat {
-        user_ms: user_ticks * 1000 / clk_tck / nrproc,
-        system_ms: system_ticks * 1000 / clk_tck / nrproc,
-        idle_ms: idle_ticks * 1000 / clk_tck / nrproc,
-    };
-
-    Ok(stat)
 }
 
 pub fn parse_meminfo(procfs: &Path) -> std::io::Result<ProcMemInfo> {
@@ -226,8 +193,26 @@ pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>
 
 impl super::Linux {
     pub fn parse_stat(&self) -> Result<ProcStat> {
-        let reader = self.procfs_open("stat")?;
-        Ok(parse_stat(reader)?)
+        let mut reader = self.procfs_open("stat")?;
+
+        let mut line = String::new();
+        reader.read_line(&mut line).context("failed to read stat")?;
+
+        // 0:type 1:user 2:nice 3:system 4:idle 5:iowait
+        let cols: Vec<&str> = line.split_ascii_whitespace().collect();
+        if cols.len() < 5 || cols[0] != "cpu" {
+            return Err(anyhow!("failed to parse stat"));
+        }
+        let [user_ms, system_ms, idle_ms] = [cols[1], cols[3], cols[4]].map(|col| {
+            let ticks: u64 = col.parse().unwrap_or(0);
+            ticks * 1000 / self.sysconf_user_hz / self.sysconf_nproc
+        });
+
+        Ok(ProcStat {
+            user_ms,
+            system_ms,
+            idle_ms,
+        })
     }
 
     pub fn parse_meminfo(&self) -> std::io::Result<ProcMemInfo> {
