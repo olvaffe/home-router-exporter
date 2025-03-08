@@ -57,8 +57,7 @@ fn parse_ethtool(sock: &NlRouter, ethtool_id: u16) -> Result<Vec<EthtoolSpeed>> 
         let mut name = None;
         let mut speed = -1;
 
-        let attr_handle = payload.attrs().get_attr_handle();
-        for attr in attr_handle.iter() {
+        for attr in payload.attrs().iter() {
             match attr.nla_type().nla_type() {
                 EthtoolLinkModes::Header => {
                     let nested_handle = attr.get_attr_handle::<EthtoolHeader>().unwrap();
