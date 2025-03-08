@@ -1,6 +1,8 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
+use crate::linux;
+
 use prometheus::{
     Encoder, IntGauge, IntGaugeVec, Opts, TextEncoder, register_int_gauge, register_int_gauge_vec,
 };
@@ -8,6 +10,7 @@ use prometheus::{
 const NAMESPACE: &str = "home_router";
 
 pub struct Prom {
+    lin: linux::Linux,
     encoder: TextEncoder,
 
     /* cpu */
@@ -37,7 +40,7 @@ pub struct Prom {
 }
 
 impl Prom {
-    pub fn new() -> Self {
+    pub fn new(lin: linux::Linux) -> Self {
         let encoder = TextEncoder::new();
 
         /* cpu */
@@ -139,6 +142,7 @@ impl Prom {
         .unwrap();
 
         Prom {
+            lin,
             encoder,
             cpu_idle_ms,
             memory_total_kb,
@@ -232,7 +236,7 @@ impl Prom {
                 .set((iface.tx / 1024).try_into().unwrap());
         }
 
-        let speeds = crate::ethtool::parse_ethtool().expect("failed to parse ethtool");
+        let speeds = self.lin.parse_ethtool().expect("failed to parse ethtool");
         for speed in speeds {
             self.net_link_speed
                 .with_label_values(&[&speed.name])

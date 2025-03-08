@@ -5,14 +5,15 @@
 
 //! Home Router Exporter is a Prometheus exporter designed for home routers.
 
-mod ethtool;
 mod hyper;
+mod linux;
 mod procfs;
 mod prometheus;
 mod rtnetlink;
 mod sysfs;
 
 fn main() {
-    let prom = crate::prometheus::Prom::new();
+    let lin = linux::Linux::new("/proc", "/sysfs");
+    let prom = prometheus::Prom::new(lin);
     let _ = hyper::run(prom);
 }

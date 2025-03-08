@@ -92,3 +92,9 @@ pub fn parse_ethtool() -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> 
 
     Ok(ifaces)
 }
+
+impl super::Linux {
+    pub fn parse_ethtool(&self) -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
+        parse_ethtool()
+    }
+}
