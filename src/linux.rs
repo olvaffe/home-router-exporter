@@ -3,6 +3,7 @@
 
 mod ethtool;
 mod rtnetlink;
+mod sysfs;
 
 use neli::{consts::socket::NlFamily, router::synchronous::NlRouter};
 use std::path;

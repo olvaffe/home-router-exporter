@@ -9,7 +9,6 @@ mod hyper;
 mod linux;
 mod procfs;
 mod prometheus;
-mod sysfs;
 
 fn main() {
     let lin = linux::Linux::new("/proc", "/sysfs");

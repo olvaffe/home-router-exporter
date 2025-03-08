@@ -205,7 +205,7 @@ impl Prom {
 
     fn update_thermal(&self) {
         let zones =
-            crate::sysfs::parse_class_thermal().expect("failed to parse /sys/class/thermal");
+            self.lin.parse_class_thermal().expect("failed to parse /sys/class/thermal");
         for zone in zones {
             self.thermal_current_mc
                 .with_label_values(&[&zone.name])

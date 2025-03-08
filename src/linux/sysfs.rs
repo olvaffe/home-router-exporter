@@ -54,3 +54,9 @@ pub fn parse_class_thermal() -> std::io::Result<Vec<SysThermalZone>> {
 
     Ok(zones)
 }
+
+impl super::Linux {
+    pub fn parse_class_thermal(&self) -> std::io::Result<Vec<SysThermalZone>> {
+        parse_class_thermal()
+    }
+}
