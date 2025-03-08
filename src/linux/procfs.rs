@@ -4,7 +4,7 @@
 use anyhow::{Context, Result, anyhow};
 use std::ffi::CString;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, ErrorKind};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 pub struct ProcStat {
@@ -56,7 +56,27 @@ pub fn parse_diskstats_line(line: &str) -> Result<ProcDiskStat> {
     })
 }
 
-pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>> {
+pub fn parse_mountinfo_line(line: &str) -> Result<(&str, &str)> {
+    // 0:id 1:parent_id 2:major:minor 3:root 4:mountpoint 5:options
+    // optional fields... n:seperator
+    // n+1:fs_type n+2:src n+3:super
+    let cols: Vec<&str> = line.split_ascii_whitespace().collect();
+    let sep_min = 6;
+    let sep = cols[sep_min..]
+        .iter()
+        .position(|&col| col == "-")
+        .map_or(0, |idx| sep_min + idx);
+    if sep < sep_min || cols.len() < sep + 3 {
+        return Err(anyhow!("failed to parse mountinfo"));
+    }
+
+    let dst = cols[4];
+    let src = cols[sep + 2];
+
+    Ok((src, dst))
+}
+
+pub fn parse_self_mountinfo(procfs: &Path) -> Result<Vec<ProcMountInfo>> {
     let mut infos: Vec<ProcMountInfo> = Vec::new();
 
     let f = File::open(procfs.join("self/mountinfo"))?;
@@ -64,33 +84,17 @@ pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>
 
     for line in reader.lines() {
         let line = line?;
-        let cols = line.split_whitespace();
-
-        let mut cols = cols.skip(4);
-        let col4 = cols
-            .next()
-            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
-
-        let mut cols = cols.skip(1);
-        while let Some(col) = cols.next() {
-            if col == "-" {
-                break;
-            }
-        }
-
-        let src = cols
-            .nth(1)
-            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
+        let (src, dst) = parse_mountinfo_line(&line)?;
         if !src.starts_with("/") {
             continue;
         }
 
         let mut skip = false;
-        for info in &mut infos {
-            if info.mount_source == src {
+        for existing in &mut infos {
+            if existing.mount_source == src {
                 skip = true;
-                if info.mount_point.starts_with(col4) {
-                    info.mount_point = col4.to_string();
+                if existing.mount_point.starts_with(dst) {
+                    existing.mount_point = dst.to_string();
                 }
                 break;
             }
@@ -101,12 +105,11 @@ pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>
 
         let info = ProcMountInfo {
             mount_source: src.to_string(),
-            mount_point: col4.to_string(),
+            mount_point: dst.to_string(),
             total: 0,
             free: 0,
             avail: 0,
         };
-
         infos.push(info);
     }
 
@@ -118,7 +121,7 @@ pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>
         let ret = unsafe { libc::statfs64(path.as_ptr(), stat.as_mut_ptr()) };
         if ret != 0 {
             println!("nonono");
-            return Err(Error::new(ErrorKind::InvalidData, "bad"));
+            return Err(anyhow!("bad"));
         }
         // SAFETY:
         let stat = unsafe { stat.assume_init() };
@@ -208,7 +211,7 @@ impl super::Linux {
         Ok(stats)
     }
 
-    pub fn parse_self_mountinfo(&self) -> std::io::Result<Vec<ProcMountInfo>> {
+    pub fn parse_self_mountinfo(&self) -> Result<Vec<ProcMountInfo>> {
         parse_self_mountinfo(&self.procfs_path)
     }
 }
