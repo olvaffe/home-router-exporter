@@ -13,7 +13,6 @@ mod rtnetlink;
 mod sysfs;
 
 fn main() {
-
     let diskstats = procfs::parse_diskstats().expect("failed to parse /proc/diskstats");
     for stat in diskstats {
         println!(
@@ -21,18 +20,6 @@ fn main() {
             stat.name,
             stat.read_bytes / 1024,
             stat.write_bytes / 1024
-        );
-    }
-
-    let mountinfos = procfs::parse_self_mountinfo().expect("failed to parse /proc/self/mountinfo");
-    for info in mountinfos {
-        println!(
-            "{}: {} {} {} {}",
-            info.mount_source,
-            info.mount_point,
-            info.total / 1024,
-            info.free / 1024,
-            info.avail / 1024
         );
     }
 

@@ -1,30 +1,42 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use prometheus::{Encoder, IntGauge, Opts, TextEncoder, register_int_gauge};
+use prometheus::{
+    Encoder, IntGauge, IntGaugeVec, Opts, TextEncoder, register_int_gauge, register_int_gauge_vec,
+};
 
 const NAMESPACE: &str = "home_router";
 
 pub struct Prom {
     encoder: TextEncoder,
 
+    /* cpu */
     cpu_idle_ms: IntGauge,
 
+    /* memory */
     memory_total_kb: IntGauge,
     memory_available_kb: IntGauge,
     swap_total_kb: IntGauge,
     swap_free_kb: IntGauge,
+
+    /* filesystem */
+    fs_total_kb: IntGaugeVec,
+    fs_available_kb: IntGaugeVec,
 }
 
 impl Prom {
     pub fn new() -> Self {
         let encoder = TextEncoder::new();
+
+        /* cpu */
         let cpu_idle_ms = register_int_gauge!(
             Opts::new("idle_ms", "CPU idle time")
                 .namespace(NAMESPACE)
                 .subsystem("cpu")
         )
         .unwrap();
+
+        /* memory */
         let memory_total_kb = register_int_gauge!(
             Opts::new("total_kb", "Total memory size")
                 .namespace(NAMESPACE)
@@ -50,6 +62,22 @@ impl Prom {
         )
         .unwrap();
 
+        /* filesystem */
+        let fs_total_kb = register_int_gauge_vec!(
+            Opts::new("total_kb", "Total filesystem size")
+                .namespace(NAMESPACE)
+                .subsystem("filesystem"),
+            &["src", "dst"]
+        )
+        .unwrap();
+        let fs_available_kb = register_int_gauge_vec!(
+            Opts::new("available_kb", "Available filesystem size")
+                .namespace(NAMESPACE)
+                .subsystem("filesystem"),
+            &["src", "dst"]
+        )
+        .unwrap();
+
         Prom {
             encoder,
             cpu_idle_ms,
@@ -57,6 +85,8 @@ impl Prom {
             memory_available_kb,
             swap_total_kb,
             swap_free_kb,
+            fs_total_kb,
+            fs_available_kb,
         }
     }
 
@@ -67,6 +97,7 @@ impl Prom {
     pub fn update(&self) {
         self.update_cpu();
         self.update_memory();
+        self.update_fs();
     }
 
     fn update_cpu(&self) {
@@ -76,10 +107,27 @@ impl Prom {
 
     fn update_memory(&self) {
         let meminfo = crate::procfs::parse_meminfo().expect("failed to parse /proc/meminfo");
-        self.memory_total_kb.set(meminfo.mem_total_kb.try_into().unwrap());
-        self.memory_available_kb.set(meminfo.mem_avail_kb.try_into().unwrap());
-        self.swap_total_kb.set(meminfo.swap_total_kb.try_into().unwrap());
-        self.swap_free_kb.set(meminfo.swap_free_kb.try_into().unwrap());
+        self.memory_total_kb
+            .set(meminfo.mem_total_kb.try_into().unwrap());
+        self.memory_available_kb
+            .set(meminfo.mem_avail_kb.try_into().unwrap());
+        self.swap_total_kb
+            .set(meminfo.swap_total_kb.try_into().unwrap());
+        self.swap_free_kb
+            .set(meminfo.swap_free_kb.try_into().unwrap());
+    }
+
+    fn update_fs(&self) {
+        let mountinfos =
+            crate::procfs::parse_self_mountinfo().expect("failed to parse /proc/self/mountinfo");
+        for info in mountinfos {
+            self.fs_total_kb
+                .with_label_values(&[&info.mount_source, &info.mount_point])
+                .set((info.total / 1024).try_into().unwrap());
+            self.fs_available_kb
+                .with_label_values(&[&info.mount_source, &info.mount_point])
+                .set((info.avail / 1024).try_into().unwrap());
+        }
     }
 
     pub fn gather(&self) -> Vec<u8> {
