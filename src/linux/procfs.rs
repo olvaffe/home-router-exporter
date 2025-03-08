@@ -34,49 +34,26 @@ pub struct ProcMountInfo {
     pub avail: u64,
 }
 
-pub fn parse_diskstats(procfs: &Path) -> std::io::Result<Vec<ProcDiskStat>> {
-    let mut stats = Vec::new();
-
-    let f = File::open(procfs.join("diskstats"))?;
-    let reader = BufReader::new(f);
-
-    for line in reader.lines() {
-        let line = line?;
-        let cols = line.split_whitespace();
-
-        let mut cols = cols.skip(2);
-        let col2 = cols
-            .next()
-            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
-        let mut cols = cols.skip(2);
-        let col5 = cols
-            .next()
-            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
-        let mut cols = cols.skip(3);
-        let col9 = cols
-            .next()
-            .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
-
-        let name = col2.to_string();
-        let read_secs = col5
-            .parse::<u64>()
-            .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
-        let write_secs = col9
-            .parse::<u64>()
-            .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))?;
-
-        if read_secs == 0 && write_secs == 0 {
-            continue;
-        }
-
-        stats.push(ProcDiskStat {
-            name: name.to_string(),
-            read_bytes: read_secs * 512,
-            write_bytes: write_secs * 512,
-        })
+pub fn parse_diskstats_line(line: &str) -> Result<ProcDiskStat> {
+    // 0:major 1:minor 2:name
+    // 3:r_completed 4:r_merged 5:r_sectors 6:r_time
+    // 7:w_completed 8:w_merged 9:w_sectors 10:w_time
+    // 11:io_count 12:io_time 13:io_weighted
+    let cols: Vec<&str> = line.split_ascii_whitespace().collect();
+    if cols.len() < 9 {
+        return Err(anyhow!("failed to parse diskstats"));
     }
+    let name = cols[2].to_string();
+    let [read_bytes, write_bytes] = [cols[5], cols[9]].map(|col| {
+        let sectors: u64 = col.parse().unwrap_or(0);
+        sectors * 512
+    });
 
-    Ok(stats)
+    Ok(ProcDiskStat {
+        name,
+        read_bytes,
+        write_bytes,
+    })
 }
 
 pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>> {
@@ -217,8 +194,18 @@ impl super::Linux {
         })
     }
 
-    pub fn parse_diskstats(&self) -> std::io::Result<Vec<ProcDiskStat>> {
-        parse_diskstats(&self.procfs_path)
+    pub fn parse_diskstats(&self) -> Result<Vec<ProcDiskStat>> {
+        let reader = self.procfs_open("diskstats")?;
+
+        let mut stats = Vec::new();
+        for line in reader.lines() {
+            let stat = parse_diskstats_line(&line?)?;
+            if stat.read_bytes != 0 || stat.write_bytes != 0 {
+                stats.push(stat)
+            }
+        }
+
+        Ok(stats)
     }
 
     pub fn parse_self_mountinfo(&self) -> std::io::Result<Vec<ProcMountInfo>> {
