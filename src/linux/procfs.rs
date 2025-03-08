@@ -89,20 +89,6 @@ pub fn parse_self_mountinfo(procfs: &Path) -> Result<Vec<ProcMountInfo>> {
             continue;
         }
 
-        let mut skip = false;
-        for existing in &mut infos {
-            if existing.mount_source == src {
-                skip = true;
-                if existing.mount_point.starts_with(dst) {
-                    existing.mount_point = dst.to_string();
-                }
-                break;
-            }
-        }
-        if skip {
-            continue;
-        }
-
         let info = ProcMountInfo {
             mount_source: src.to_string(),
             mount_point: dst.to_string(),
