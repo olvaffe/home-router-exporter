@@ -12,8 +12,11 @@ use std::path;
 pub struct Linux {
     procfs_path: path::PathBuf,
     sysfs_path: path::PathBuf,
+
     rt_sock: NlRouter,
     genl_sock: NlRouter,
+
+    ethtool_id: u16,
 }
 
 impl Linux {
@@ -21,11 +24,14 @@ impl Linux {
         let rt_sock = Self::nl_socket(NlFamily::Route);
         let genl_sock = Self::nl_socket(NlFamily::Generic);
 
+        let ethtool_id = genl_sock.resolve_genl_family("ethtool").unwrap();
+
         Linux {
             procfs_path: procfs_path.as_ref().to_path_buf(),
             sysfs_path: sysfs_path.as_ref().to_path_buf(),
             rt_sock,
             genl_sock,
+            ethtool_id,
         }
     }
 

@@ -3,11 +3,10 @@
 
 use neli::{
     attr::Attribute,
-    consts::{nl::NlmF, socket::NlFamily},
+    consts::nl::NlmF,
     genl::{Genlmsghdr, GenlmsghdrBuilder, NoUserHeader},
     nl::NlPayload,
     router::synchronous::NlRouter,
-    utils::Groups,
 };
 
 #[neli::neli_enum(serialized_type = "u8")]
@@ -34,11 +33,8 @@ pub struct EthtoolSpeed {
     pub speed: i32,
 }
 
-pub fn parse_ethtool() -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
+pub fn parse_ethtool(sock: &NlRouter, ethtool_id: u16) -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
     let mut ifaces = Vec::new();
-
-    let (sock, _) = NlRouter::connect(NlFamily::Generic, None, Groups::empty())?;
-    let family_id = sock.resolve_genl_family("ethtool")?;
 
     let req = GenlmsghdrBuilder::<EthtoolMessage, EthtoolLinkModes, NoUserHeader>::default()
         .cmd(EthtoolMessage::LinkModesGet)
@@ -46,7 +42,7 @@ pub fn parse_ethtool() -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> 
         .build()?;
 
     let mut recv = sock.send::<_, _, u16, Genlmsghdr<EthtoolMessage, EthtoolLinkModes>>(
-        family_id,
+        ethtool_id,
         NlmF::DUMP,
         NlPayload::Payload(req),
     )?;
@@ -95,6 +91,6 @@ pub fn parse_ethtool() -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> 
 
 impl super::Linux {
     pub fn parse_ethtool(&self) -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
-        parse_ethtool()
+        parse_ethtool(&self.genl_sock, self.ethtool_id)
     }
 }
