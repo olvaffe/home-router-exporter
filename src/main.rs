@@ -13,11 +13,6 @@ mod rtnetlink;
 mod sysfs;
 
 fn main() {
-    let zones = sysfs::parse_class_thermal().expect("failed to parse /sys/class/thermal");
-    for zone in zones {
-        println!("thermal zone {}: {} {}", zone.zone, zone.name, zone.temp);
-    }
-
     let speeds = ethtool::parse_ethtool().expect("failed to parse ethtool");
     for speed in speeds {
         println!("nic {}: {}", speed.name, speed.speed);

@@ -26,6 +26,9 @@ pub struct Prom {
     /* io */
     io_read_kb: IntGaugeVec,
     io_write_kb: IntGaugeVec,
+
+    /* thermal */
+    thermal_current_mc: IntGaugeVec,
 }
 
 impl Prom {
@@ -98,6 +101,15 @@ impl Prom {
         )
         .unwrap();
 
+        /* thermal */
+        let thermal_current_mc = register_int_gauge_vec!(
+            Opts::new("current_mc", "Current temperature")
+                .namespace(NAMESPACE)
+                .subsystem("thermal"),
+            &["type"]
+        )
+        .unwrap();
+
         Prom {
             encoder,
             cpu_idle_ms,
@@ -109,6 +121,7 @@ impl Prom {
             fs_available_kb,
             io_read_kb,
             io_write_kb,
+            thermal_current_mc,
         }
     }
 
@@ -121,6 +134,7 @@ impl Prom {
         self.update_memory();
         self.update_fs();
         self.update_io();
+        self.update_thermal();
     }
 
     fn update_cpu(&self) {
@@ -162,6 +176,16 @@ impl Prom {
             self.io_write_kb
                 .with_label_values(&[&stat.name])
                 .set((stat.write_bytes / 1024).try_into().unwrap());
+        }
+    }
+
+    fn update_thermal(&self) {
+        let zones =
+            crate::sysfs::parse_class_thermal().expect("failed to parse /sys/class/thermal");
+        for zone in zones {
+            self.thermal_current_mc
+                .with_label_values(&[&zone.name])
+                .set((zone.temp).try_into().unwrap());
         }
     }
 
