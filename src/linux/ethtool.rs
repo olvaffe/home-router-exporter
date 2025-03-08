@@ -33,7 +33,10 @@ pub struct EthtoolSpeed {
     pub speed: i32,
 }
 
-pub fn parse_ethtool(sock: &NlRouter, ethtool_id: u16) -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
+pub fn parse_ethtool(
+    sock: &NlRouter,
+    ethtool_id: u16,
+) -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
     let mut ifaces = Vec::new();
 
     let req = GenlmsghdrBuilder::<EthtoolMessage, EthtoolLinkModes, NoUserHeader>::default()

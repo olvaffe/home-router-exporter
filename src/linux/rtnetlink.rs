@@ -6,12 +6,10 @@ use neli::{
     consts::{
         nl::NlmF,
         rtnl::{Arphrd, Ifla, RtAddrFamily, RtScope, RtTable, Rta, Rtm, Rtn, Rtprot},
-        socket::NlFamily,
     },
     nl::NlPayload,
     router::synchronous::NlRouter,
     rtnl::{Ifinfomsg, IfinfomsgBuilder, Rtmsg, RtmsgBuilder},
-    utils::Groups,
 };
 
 pub struct Link {
@@ -25,12 +23,8 @@ pub struct Route {
     pub oif: i32,
 }
 
-pub fn parse_links() -> Result<Vec<Link>, Box<dyn std::error::Error>> {
+pub fn parse_links(sock: &NlRouter) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
     let mut ifaces = Vec::new();
-
-    let (sock, _) = NlRouter::connect(NlFamily::Route, None, Groups::empty())?;
-    sock.enable_ext_ack(true)?;
-    sock.enable_strict_checking(true)?;
 
     let req = IfinfomsgBuilder::default()
         .ifi_family(RtAddrFamily::Unspecified)
@@ -81,12 +75,8 @@ pub fn parse_links() -> Result<Vec<Link>, Box<dyn std::error::Error>> {
     Ok(ifaces)
 }
 
-pub fn parse_routes() -> Result<Vec<Route>, Box<dyn std::error::Error>> {
+pub fn parse_routes(sock: &NlRouter) -> Result<Vec<Route>, Box<dyn std::error::Error>> {
     let mut routes = Vec::new();
-
-    let (sock, _) = NlRouter::connect(NlFamily::Route, None, Groups::empty())?;
-    sock.enable_ext_ack(true)?;
-    sock.enable_strict_checking(true)?;
 
     let req = RtmsgBuilder::default()
         .rtm_family(RtAddrFamily::Unspecified)
@@ -139,10 +129,10 @@ pub fn parse_routes() -> Result<Vec<Route>, Box<dyn std::error::Error>> {
 
 impl super::Linux {
     pub fn parse_links(&self) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
-        parse_links()
+        parse_links(&self.rt_sock)
     }
 
     pub fn parse_routes(&self) -> Result<Vec<Route>, Box<dyn std::error::Error>> {
-        parse_routes()
+        parse_routes(&self.rt_sock)
     }
 }
