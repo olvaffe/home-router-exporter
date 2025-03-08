@@ -34,43 +34,6 @@ pub struct ProcMountInfo {
     pub avail: u64,
 }
 
-pub fn parse_meminfo(procfs: &Path) -> std::io::Result<ProcMemInfo> {
-    let f = File::open(procfs.join("meminfo"))?;
-    let reader = BufReader::new(f);
-
-    let mut info = ProcMemInfo {
-        mem_total_kb: 0,
-        mem_avail_kb: 0,
-        swap_total_kb: 0,
-        swap_free_kb: 0,
-    };
-    for line in reader.lines() {
-        let line = line?;
-
-        let get_u64 = |line: &str| {
-            let col1 = line
-                .split_whitespace()
-                .nth(1)
-                .ok_or(Error::new(ErrorKind::InvalidData, "bad"))?;
-            col1.parse::<u64>()
-                .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))
-        };
-
-        if line.starts_with("MemTotal:") {
-            info.mem_total_kb = get_u64(&line)?;
-        } else if line.starts_with("MemAvailable:") {
-            info.mem_avail_kb = get_u64(&line)?;
-        } else if line.starts_with("SwapTotal:") {
-            info.swap_total_kb = get_u64(&line)?;
-        } else if line.starts_with("SwapFree:") {
-            info.swap_free_kb = get_u64(&line)?;
-            break;
-        }
-    }
-
-    Ok(info)
-}
-
 pub fn parse_diskstats(procfs: &Path) -> std::io::Result<Vec<ProcDiskStat>> {
     let mut stats = Vec::new();
 
@@ -215,8 +178,43 @@ impl super::Linux {
         })
     }
 
-    pub fn parse_meminfo(&self) -> std::io::Result<ProcMemInfo> {
-        parse_meminfo(&self.procfs_path)
+    pub fn parse_meminfo(&self) -> Result<ProcMemInfo> {
+        let reader = self.procfs_open("meminfo")?;
+
+        let mut mem_total_kb = 0;
+        let mut mem_avail_kb = 0;
+        let mut swap_total_kb = 0;
+        let mut swap_free_kb = 0;
+        for line in reader.lines() {
+            let line = line.context("failed to read meminfo")?;
+
+            // type: value [unit]
+            let cols: Vec<&str> = line.split_ascii_whitespace().collect();
+            if cols.len() < 2 {
+                return Err(anyhow!("failed to parse meminfo"));
+            }
+            let ty = cols[0];
+            let val: u64 = cols[1].parse().unwrap_or(0);
+
+            match ty {
+                "MemTotal:" => mem_total_kb = val,
+                "MemAvailable:" => mem_avail_kb = val,
+                "SwapTotal:" => swap_total_kb = val,
+                "SwapFree:" => {
+                    swap_free_kb = val;
+                    // we've got them all
+                    break;
+                }
+                _ => (),
+            }
+        }
+
+        Ok(ProcMemInfo {
+            mem_total_kb,
+            mem_avail_kb,
+            swap_total_kb,
+            swap_free_kb,
+        })
     }
 
     pub fn parse_diskstats(&self) -> std::io::Result<Vec<ProcDiskStat>> {
