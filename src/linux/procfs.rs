@@ -238,3 +238,21 @@ pub fn parse_self_mountinfo() -> std::io::Result<Vec<ProcMountInfo>> {
 
     Ok(infos)
 }
+
+impl super::Linux {
+    pub fn parse_stat(&self) -> std::io::Result<ProcStat> {
+        parse_stat()
+    }
+
+    pub fn parse_meminfo(&self) -> std::io::Result<ProcMemInfo> {
+        parse_meminfo()
+    }
+
+    pub fn parse_diskstats(&self) -> std::io::Result<Vec<ProcDiskStat>> {
+        parse_diskstats()
+    }
+
+    pub fn parse_self_mountinfo(&self) -> std::io::Result<Vec<ProcMountInfo>> {
+        parse_self_mountinfo()
+    }
+}

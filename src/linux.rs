@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 mod ethtool;
+mod procfs;
 mod rtnetlink;
 mod sysfs;
 

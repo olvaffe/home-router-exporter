@@ -7,7 +7,6 @@
 
 mod hyper;
 mod linux;
-mod procfs;
 mod prometheus;
 
 fn main() {

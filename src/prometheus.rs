@@ -174,12 +174,15 @@ impl Prom {
     }
 
     fn update_cpu(&self) {
-        let stat = crate::procfs::parse_stat().expect("failed to parse /proc/stat");
+        let stat = self.lin.parse_stat().expect("failed to parse /proc/stat");
         self.cpu_idle_ms.set(stat.idle_ms.try_into().unwrap());
     }
 
     fn update_memory(&self) {
-        let meminfo = crate::procfs::parse_meminfo().expect("failed to parse /proc/meminfo");
+        let meminfo = self
+            .lin
+            .parse_meminfo()
+            .expect("failed to parse /proc/meminfo");
         self.memory_total_kb
             .set(meminfo.mem_total_kb.try_into().unwrap());
         self.memory_available_kb
@@ -191,8 +194,10 @@ impl Prom {
     }
 
     fn update_fs(&self) {
-        let mountinfos =
-            crate::procfs::parse_self_mountinfo().expect("failed to parse /proc/self/mountinfo");
+        let mountinfos = self
+            .lin
+            .parse_self_mountinfo()
+            .expect("failed to parse /proc/self/mountinfo");
         for info in mountinfos {
             self.fs_total_kb
                 .with_label_values(&[&info.mount_source, &info.mount_point])
@@ -204,8 +209,10 @@ impl Prom {
     }
 
     fn update_thermal(&self) {
-        let zones =
-            self.lin.parse_class_thermal().expect("failed to parse /sys/class/thermal");
+        let zones = self
+            .lin
+            .parse_class_thermal()
+            .expect("failed to parse /sys/class/thermal");
         for zone in zones {
             self.thermal_current_mc
                 .with_label_values(&[&zone.name])
@@ -214,7 +221,10 @@ impl Prom {
     }
 
     fn update_io(&self) {
-        let diskstats = crate::procfs::parse_diskstats().expect("failed to parse /proc/diskstats");
+        let diskstats = self
+            .lin
+            .parse_diskstats()
+            .expect("failed to parse /proc/diskstats");
         for stat in diskstats {
             self.io_read_kb
                 .with_label_values(&[&stat.name])
