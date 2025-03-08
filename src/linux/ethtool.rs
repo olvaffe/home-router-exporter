@@ -1,6 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
+use anyhow::Result;
 use neli::{
     attr::Attribute,
     consts::nl::NlmF,
@@ -16,14 +17,14 @@ enum EthtoolMessage {
 impl neli::consts::genl::Cmd for EthtoolMessage {}
 
 #[neli::neli_enum(serialized_type = "u16")]
-pub enum EthtoolLinkModes {
+enum EthtoolLinkModes {
     Header = 1,
     Speed = 5,
 }
 impl neli::consts::genl::NlAttrType for EthtoolLinkModes {}
 
 #[neli::neli_enum(serialized_type = "u16")]
-pub enum EthtoolHeader {
+enum EthtoolHeader {
     DevName = 2,
 }
 impl neli::consts::genl::NlAttrType for EthtoolHeader {}
@@ -33,10 +34,7 @@ pub struct EthtoolSpeed {
     pub speed: i32,
 }
 
-pub fn parse_ethtool(
-    sock: &NlRouter,
-    ethtool_id: u16,
-) -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
+fn parse_ethtool(sock: &NlRouter, ethtool_id: u16) -> Result<Vec<EthtoolSpeed>> {
     let mut ifaces = Vec::new();
 
     let req = GenlmsghdrBuilder::<EthtoolMessage, EthtoolLinkModes, NoUserHeader>::default()
@@ -93,7 +91,7 @@ pub fn parse_ethtool(
 }
 
 impl super::Linux {
-    pub fn parse_ethtool(&self) -> Result<Vec<EthtoolSpeed>, Box<dyn std::error::Error>> {
+    pub fn parse_ethtool(&self) -> Result<Vec<EthtoolSpeed>> {
         parse_ethtool(&self.genl_sock, self.ethtool_id)
     }
 }
