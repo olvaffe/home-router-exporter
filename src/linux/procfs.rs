@@ -4,6 +4,7 @@
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
+use std::path::Path;
 
 pub struct ProcStat {
     pub user_ms: u64,
@@ -32,8 +33,8 @@ pub struct ProcMountInfo {
     pub avail: u64,
 }
 
-pub fn parse_stat() -> std::io::Result<ProcStat> {
-    let f = File::open("/proc/stat")?;
+pub fn parse_stat(procfs: &Path) -> std::io::Result<ProcStat> {
+    let f = File::open(procfs.join("stat"))?;
     let mut reader = BufReader::new(f);
 
     let mut line = String::new();
@@ -82,8 +83,8 @@ pub fn parse_stat() -> std::io::Result<ProcStat> {
     Ok(stat)
 }
 
-pub fn parse_meminfo() -> std::io::Result<ProcMemInfo> {
-    let f = File::open("/proc/meminfo")?;
+pub fn parse_meminfo(procfs: &Path) -> std::io::Result<ProcMemInfo> {
+    let f = File::open(procfs.join("meminfo"))?;
     let reader = BufReader::new(f);
 
     let mut info = ProcMemInfo {
@@ -119,10 +120,10 @@ pub fn parse_meminfo() -> std::io::Result<ProcMemInfo> {
     Ok(info)
 }
 
-pub fn parse_diskstats() -> std::io::Result<Vec<ProcDiskStat>> {
+pub fn parse_diskstats(procfs: &Path) -> std::io::Result<Vec<ProcDiskStat>> {
     let mut stats = Vec::new();
 
-    let f = File::open("/proc/diskstats")?;
+    let f = File::open(procfs.join("diskstats"))?;
     let reader = BufReader::new(f);
 
     for line in reader.lines() {
@@ -164,10 +165,10 @@ pub fn parse_diskstats() -> std::io::Result<Vec<ProcDiskStat>> {
     Ok(stats)
 }
 
-pub fn parse_self_mountinfo() -> std::io::Result<Vec<ProcMountInfo>> {
+pub fn parse_self_mountinfo(procfs: &Path) -> std::io::Result<Vec<ProcMountInfo>> {
     let mut infos: Vec<ProcMountInfo> = Vec::new();
 
-    let f = File::open("/proc/self/mountinfo")?;
+    let f = File::open(procfs.join("self/mountinfo"))?;
     let reader = BufReader::new(f);
 
     for line in reader.lines() {
@@ -241,18 +242,18 @@ pub fn parse_self_mountinfo() -> std::io::Result<Vec<ProcMountInfo>> {
 
 impl super::Linux {
     pub fn parse_stat(&self) -> std::io::Result<ProcStat> {
-        parse_stat()
+        parse_stat(&self.procfs_path)
     }
 
     pub fn parse_meminfo(&self) -> std::io::Result<ProcMemInfo> {
-        parse_meminfo()
+        parse_meminfo(&self.procfs_path)
     }
 
     pub fn parse_diskstats(&self) -> std::io::Result<Vec<ProcDiskStat>> {
-        parse_diskstats()
+        parse_diskstats(&self.procfs_path)
     }
 
     pub fn parse_self_mountinfo(&self) -> std::io::Result<Vec<ProcMountInfo>> {
-        parse_self_mountinfo()
+        parse_self_mountinfo(&self.procfs_path)
     }
 }
