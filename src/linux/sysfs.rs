@@ -22,7 +22,7 @@ fn read_u64<P: AsRef<Path>>(path: P) -> std::io::Result<u64> {
         .map_err(|_| Error::new(ErrorKind::InvalidData, "bad"))
 }
 
-pub fn parse_class_thermal() -> std::io::Result<Vec<SysThermalZone>> {
+pub fn parse_class_thermal(sysfs: &Path) -> std::io::Result<Vec<SysThermalZone>> {
     let mut zones = Vec::new();
 
     let zone_entries = std::fs::read_dir("/sys/class/thermal")?;
@@ -57,6 +57,6 @@ pub fn parse_class_thermal() -> std::io::Result<Vec<SysThermalZone>> {
 
 impl super::Linux {
     pub fn parse_class_thermal(&self) -> std::io::Result<Vec<SysThermalZone>> {
-        parse_class_thermal()
+        parse_class_thermal(&self.sysfs_path)
     }
 }
