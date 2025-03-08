@@ -23,12 +23,16 @@ pub struct Prom {
     fs_total_kb: IntGaugeVec,
     fs_available_kb: IntGaugeVec,
 
+    /* thermal */
+    thermal_current_mc: IntGaugeVec,
+
     /* io */
     io_read_kb: IntGaugeVec,
     io_write_kb: IntGaugeVec,
 
-    /* thermal */
-    thermal_current_mc: IntGaugeVec,
+    /* net */
+    net_rx_kb: IntGaugeVec,
+    net_tx_kb: IntGaugeVec,
 }
 
 impl Prom {
@@ -85,6 +89,15 @@ impl Prom {
         )
         .unwrap();
 
+        /* thermal */
+        let thermal_current_mc = register_int_gauge_vec!(
+            Opts::new("current_mc", "Current temperature")
+                .namespace(NAMESPACE)
+                .subsystem("thermal"),
+            &["type"]
+        )
+        .unwrap();
+
         /* io */
         let io_read_kb = register_int_gauge_vec!(
             Opts::new("read_kb", "Total read size")
@@ -101,12 +114,19 @@ impl Prom {
         )
         .unwrap();
 
-        /* thermal */
-        let thermal_current_mc = register_int_gauge_vec!(
-            Opts::new("current_mc", "Current temperature")
+        /* net */
+        let net_rx_kb = register_int_gauge_vec!(
+            Opts::new("rx_kb", "Total rx size")
                 .namespace(NAMESPACE)
-                .subsystem("thermal"),
-            &["type"]
+                .subsystem("net"),
+            &["netdev"]
+        )
+        .unwrap();
+        let net_tx_kb = register_int_gauge_vec!(
+            Opts::new("tx_kb", "Total tx size")
+                .namespace(NAMESPACE)
+                .subsystem("net"),
+            &["netdev"]
         )
         .unwrap();
 
@@ -119,9 +139,11 @@ impl Prom {
             swap_free_kb,
             fs_total_kb,
             fs_available_kb,
+            thermal_current_mc,
             io_read_kb,
             io_write_kb,
-            thermal_current_mc,
+            net_rx_kb,
+            net_tx_kb,
         }
     }
 
@@ -133,8 +155,9 @@ impl Prom {
         self.update_cpu();
         self.update_memory();
         self.update_fs();
-        self.update_io();
         self.update_thermal();
+        self.update_io();
+        self.update_net();
     }
 
     fn update_cpu(&self) {
@@ -167,6 +190,16 @@ impl Prom {
         }
     }
 
+    fn update_thermal(&self) {
+        let zones =
+            crate::sysfs::parse_class_thermal().expect("failed to parse /sys/class/thermal");
+        for zone in zones {
+            self.thermal_current_mc
+                .with_label_values(&[&zone.name])
+                .set((zone.temp).try_into().unwrap());
+        }
+    }
+
     fn update_io(&self) {
         let diskstats = crate::procfs::parse_diskstats().expect("failed to parse /proc/diskstats");
         for stat in diskstats {
@@ -179,13 +212,15 @@ impl Prom {
         }
     }
 
-    fn update_thermal(&self) {
-        let zones =
-            crate::sysfs::parse_class_thermal().expect("failed to parse /sys/class/thermal");
-        for zone in zones {
-            self.thermal_current_mc
-                .with_label_values(&[&zone.name])
-                .set((zone.temp).try_into().unwrap());
+    fn update_net(&self) {
+        let ifaces = crate::rtnetlink::parse_rtnetlink().expect("failed to parse rtnetlink");
+        for iface in ifaces {
+            self.net_rx_kb
+                .with_label_values(&[&iface.name])
+                .set((iface.rx / 1024).try_into().unwrap());
+            self.net_tx_kb
+                .with_label_values(&[&iface.name])
+                .set((iface.tx / 1024).try_into().unwrap());
         }
     }
 
