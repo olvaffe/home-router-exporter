@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 http-body-util = "0.1"
-hyper = { version = "1", features = ["full"] }
-hyper-util = { version = "0.1", features = ["full"] }
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["server", "http1", "tokio"] }
 libc = "0.2"
 neli = "0.7.0-rc3"
 prometheus = "0.13"
