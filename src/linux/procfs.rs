@@ -10,7 +10,7 @@ pub struct ProcDiskStat {
     pub write_bytes: u64,
 }
 
-pub struct ProcMemInfo {
+pub(super) struct MemInfo {
     pub mem_total_kb: u64,
     pub mem_avail_kb: u64,
     pub swap_total_kb: u64,
@@ -86,7 +86,7 @@ impl super::Linux {
         Ok(stats)
     }
 
-    pub fn parse_meminfo(&self) -> Result<ProcMemInfo> {
+    pub(super) fn parse_meminfo(&self) -> Result<MemInfo> {
         let reader = self.procfs_open("meminfo")?;
 
         let mut mem_total_kb = 0;
@@ -117,7 +117,7 @@ impl super::Linux {
             }
         }
 
-        Ok(ProcMemInfo {
+        Ok(MemInfo {
             mem_total_kb,
             mem_avail_kb,
             swap_total_kb,
@@ -141,9 +141,7 @@ impl super::Linux {
             ticks * 1000 / self.sysconf_user_hz / self.sysconf_nproc
         });
 
-        Ok(Stat {
-            idle_ms,
-        })
+        Ok(Stat { idle_ms })
     }
 
     pub fn parse_self_mountinfo(&self) -> Result<Vec<ProcMountInfo>> {

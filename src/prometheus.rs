@@ -23,10 +23,10 @@ pub struct Prom {
     pub cpu_idle_ms: IntGauge,
 
     /* memory */
-    memory_total_kb: IntGauge,
-    memory_available_kb: IntGauge,
-    swap_total_kb: IntGauge,
-    swap_free_kb: IntGauge,
+    pub memory_total_kb: IntGauge,
+    pub memory_available_kb: IntGauge,
+    pub swap_total_kb: IntGauge,
+    pub swap_free_kb: IntGauge,
 
     /* filesystem */
     fs_total_kb: IntGaugeVec,
@@ -168,26 +168,10 @@ impl Prom {
 
     pub fn collect(&self) {
         self.lin.collect(self);
-        self.collect_memory();
         self.collect_fs();
         self.collect_thermal();
         self.collect_io();
         self.collect_net();
-    }
-
-    fn collect_memory(&self) {
-        let meminfo = self
-            .lin
-            .parse_meminfo()
-            .expect("failed to parse /proc/meminfo");
-        self.memory_total_kb
-            .set(meminfo.mem_total_kb.try_into().unwrap());
-        self.memory_available_kb
-            .set(meminfo.mem_avail_kb.try_into().unwrap());
-        self.swap_total_kb
-            .set(meminfo.swap_total_kb.try_into().unwrap());
-        self.swap_free_kb
-            .set(meminfo.swap_free_kb.try_into().unwrap());
     }
 
     fn collect_fs(&self) {

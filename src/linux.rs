@@ -64,11 +64,25 @@ impl Linux {
 
     pub fn collect(&self, prom: &Prom) {
         self.collect_cpu(prom);
+        self.collect_mem(prom);
     }
 
     fn collect_cpu(&self, prom: &Prom) {
         if let Ok(stat) = self.parse_stat() {
             prom.cpu_idle_ms.set(stat.idle_ms.try_into().unwrap());
+        }
+    }
+
+    fn collect_mem(&self, prom: &Prom) {
+        if let Ok(meminfo) = self.parse_meminfo() {
+            prom.memory_total_kb
+                .set(meminfo.mem_total_kb.try_into().unwrap());
+            prom.memory_available_kb
+                .set(meminfo.mem_avail_kb.try_into().unwrap());
+            prom.swap_total_kb
+                .set(meminfo.swap_total_kb.try_into().unwrap());
+            prom.swap_free_kb
+                .set(meminfo.swap_free_kb.try_into().unwrap());
         }
     }
 
