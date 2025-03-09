@@ -91,6 +91,7 @@ impl Linux {
     }
 
     fn collect_fs(&self, prom: &Prom) {
+        // TODO iterator
         if let Ok(mountinfos) = self.parse_self_mountinfo() {
             for info in mountinfos {
                 prom.fs_total_kb
@@ -104,6 +105,7 @@ impl Linux {
     }
 
     fn collect_thermal(&self, prom: &Prom) {
+        // TODO iterator
         if let Ok(zones) = self.parse_class_thermal() {
             for zone in zones {
                 prom.thermal_current_mc
@@ -114,6 +116,7 @@ impl Linux {
     }
 
     fn collect_io(&self, prom: &Prom) {
+        // TODO iterator
         if let Ok(diskstats) = self.parse_diskstats() {
             for stat in diskstats {
                 prom.io_read_kb
@@ -127,6 +130,8 @@ impl Linux {
     }
 
     fn collect_net(&self, prom: &Prom) {
+        // TODO iterators
+
         if let Ok(links) = self.parse_links() {
             for link in links {
                 prom.net_rx_kb
@@ -147,6 +152,7 @@ impl Linux {
         }
 
         if let Ok(routes) = self.parse_routes() {
+            // TODO
             for route in routes {
                 println!("gateway: {:?} oif {}", route.gateway, route.oif);
             }
