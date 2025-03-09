@@ -65,6 +65,7 @@ impl Linux {
     pub fn collect(&self, prom: &Prom) {
         self.collect_cpu(prom);
         self.collect_mem(prom);
+        self.collect_fs(prom);
     }
 
     fn collect_cpu(&self, prom: &Prom) {
@@ -83,6 +84,19 @@ impl Linux {
                 .set(meminfo.swap_total_kb.try_into().unwrap());
             prom.swap_free_kb
                 .set(meminfo.swap_free_kb.try_into().unwrap());
+        }
+    }
+
+    fn collect_fs(&self, prom: &Prom) {
+        if let Ok(mountinfos) = self.parse_self_mountinfo() {
+            for info in mountinfos {
+                prom.fs_total_kb
+                    .with_label_values(&[&info.mount_source, &info.mount_point])
+                    .set((info.total / 1024).try_into().unwrap());
+                prom.fs_available_kb
+                    .with_label_values(&[&info.mount_source, &info.mount_point])
+                    .set((info.avail / 1024).try_into().unwrap());
+            }
         }
     }
 

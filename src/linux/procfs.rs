@@ -21,11 +21,10 @@ pub(super) struct Stat {
     pub idle_ms: u64,
 }
 
-pub struct ProcMountInfo {
+pub(super) struct PidMountInfo {
     pub mount_source: String,
     pub mount_point: String,
     pub total: u64,
-    pub free: u64,
     pub avail: u64,
 }
 
@@ -144,10 +143,10 @@ impl super::Linux {
         Ok(Stat { idle_ms })
     }
 
-    pub fn parse_self_mountinfo(&self) -> Result<Vec<ProcMountInfo>> {
+    pub(super) fn parse_self_mountinfo(&self) -> Result<Vec<PidMountInfo>> {
         let reader = self.procfs_open("self/mountinfo")?;
 
-        let mut infos: Vec<ProcMountInfo> = Vec::new();
+        let mut infos: Vec<PidMountInfo> = Vec::new();
         for line in reader.lines() {
             let line = line?;
             let (src, dst) = parse_pid_mountinfo_line(&line)?;
@@ -155,13 +154,12 @@ impl super::Linux {
                 continue;
             }
 
-            let [total, free, avail] = crate::libc::statvfs_size(dst)?;
+            let [total, _free, avail] = crate::libc::statvfs_size(dst)?;
 
-            let info = ProcMountInfo {
+            let info = PidMountInfo {
                 mount_source: src.to_string(),
                 mount_point: dst.to_string(),
                 total,
-                free,
                 avail,
             };
             infos.push(info);

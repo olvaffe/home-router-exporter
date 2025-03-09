@@ -29,8 +29,8 @@ pub struct Prom {
     pub swap_free_kb: IntGauge,
 
     /* filesystem */
-    fs_total_kb: IntGaugeVec,
-    fs_available_kb: IntGaugeVec,
+    pub fs_total_kb: IntGaugeVec,
+    pub fs_available_kb: IntGaugeVec,
 
     /* thermal */
     thermal_current_mc: IntGaugeVec,
@@ -168,25 +168,9 @@ impl Prom {
 
     pub fn collect(&self) {
         self.lin.collect(self);
-        self.collect_fs();
         self.collect_thermal();
         self.collect_io();
         self.collect_net();
-    }
-
-    fn collect_fs(&self) {
-        let mountinfos = self
-            .lin
-            .parse_self_mountinfo()
-            .expect("failed to parse /proc/self/mountinfo");
-        for info in mountinfos {
-            self.fs_total_kb
-                .with_label_values(&[&info.mount_source, &info.mount_point])
-                .set((info.total / 1024).try_into().unwrap());
-            self.fs_available_kb
-                .with_label_values(&[&info.mount_source, &info.mount_point])
-                .set((info.avail / 1024).try_into().unwrap());
-        }
     }
 
     fn collect_thermal(&self) {
