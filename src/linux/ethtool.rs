@@ -1,13 +1,13 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use neli::{
     attr::Attribute,
     consts::nl::NlmF,
     genl::{Genlmsghdr, GenlmsghdrBuilder, NoUserHeader},
     nl::NlPayload,
-    router::synchronous::{NlRouter, NlRouterReceiverHandle},
+    router::synchronous::NlRouterReceiverHandle,
 };
 
 type Ethtoolmsghdr = Genlmsghdr<EthtoolMessage, EthtoolLinkModes>;
@@ -38,62 +38,66 @@ pub struct EthtoolSpeed {
     pub speed: i32,
 }
 
-fn parse_ethtool(sock: &NlRouter, ethtool_id: u16) -> Result<Vec<EthtoolSpeed>> {
-    let mut ifaces = Vec::new();
+fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Result<EthtoolSpeed> {
+    let mut name = None;
+    let mut speed = -1;
 
-    let req = EthtoolmsghdrBuilder::default()
-        .cmd(EthtoolMessage::LinkModesGet)
-        .version(1)
-        .build()?;
-
-    let recv: EthtoolReceiverHandle = sock
-        .send(ethtool_id, NlmF::DUMP, NlPayload::Payload(req))
-        .context("failed to send to ethtool")?;
-
-    for genlmsg in recv {
-        let genlmsg = genlmsg.context("got an ethtool error")?;
-        let resp = match genlmsg.nl_payload() {
-            NlPayload::Payload(resp) => resp,
-            _ => continue,
-        };
-
-        let mut name = None;
-        let mut speed = -1;
-
-        for attr in resp.attrs().iter() {
-            match attr.nla_type().nla_type() {
-                EthtoolLinkModes::Header => {
-                    let nested_handle = attr.get_attr_handle::<EthtoolHeader>().unwrap();
-                    for nested in nested_handle.iter() {
-                        match nested.nla_type().nla_type() {
-                            EthtoolHeader::DevName => {
-                                let n = nested.get_payload_as_with_len::<String>().unwrap();
-                                name = Some(n);
-                            }
-                            _ => (),
+    for attr in resp.attrs().iter() {
+        match attr.nla_type().nla_type() {
+            EthtoolLinkModes::Header => {
+                let nested_handle = attr.get_attr_handle::<EthtoolHeader>().unwrap();
+                for nested in nested_handle.iter() {
+                    match nested.nla_type().nla_type() {
+                        EthtoolHeader::DevName => {
+                            let n = nested.get_payload_as_with_len::<String>().unwrap();
+                            name = Some(n);
                         }
+                        _ => (),
                     }
                 }
-                EthtoolLinkModes::Speed => {
-                    speed = attr.get_payload_as::<i32>().unwrap();
-                }
-                _ => (),
             }
-        }
-
-        if name.is_some() && speed > 0 {
-            ifaces.push(EthtoolSpeed {
-                name: name.unwrap(),
-                speed,
-            });
+            EthtoolLinkModes::Speed => {
+                speed = attr.get_payload_as::<i32>().unwrap();
+            }
+            _ => (),
         }
     }
 
-    Ok(ifaces)
+    if name.is_some() && speed > 0 {
+        Ok(EthtoolSpeed {
+            name: name.unwrap(),
+            speed,
+        })
+    } else {
+        Err(anyhow!(""))
+    }
 }
 
 impl super::Linux {
     pub fn parse_ethtool(&self) -> Result<Vec<EthtoolSpeed>> {
-        parse_ethtool(&self.genl_sock, self.ethtool_id)
+        let req = EthtoolmsghdrBuilder::default()
+            .cmd(EthtoolMessage::LinkModesGet)
+            .version(1)
+            .build()?;
+        let recv: EthtoolReceiverHandle = self
+            .genl_sock
+            .send(self.ethtool_id, NlmF::DUMP, NlPayload::Payload(req))
+            .context("failed to send to ethtool")?;
+
+        let mut ifaces = Vec::new();
+        for genlmsg in recv {
+            let genlmsg = genlmsg.context("got an ethtool error")?;
+            let resp = match genlmsg.nl_payload() {
+                NlPayload::Payload(resp) => resp,
+                _ => continue,
+            };
+
+            match parse_link_modes_get_response(resp) {
+                Ok(speed) => ifaces.push(speed),
+                _ => (),
+            }
+        }
+
+        Ok(ifaces)
     }
 }
