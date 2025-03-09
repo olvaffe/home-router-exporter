@@ -5,37 +5,50 @@ use anyhow::{Context, Result, anyhow};
 use neli::{
     attr::Attribute,
     consts::nl::NlmF,
-    genl::{Genlmsghdr, GenlmsghdrBuilder, NoUserHeader},
+    genl::{GenlAttrHandle, Genlmsghdr, GenlmsghdrBuilder, NoUserHeader},
     nl::NlPayload,
     router::synchronous::NlRouterReceiverHandle,
 };
 
-type Ethtoolmsghdr = Genlmsghdr<EthtoolMessage, EthtoolLinkModes>;
-type EthtoolmsghdrBuilder = GenlmsghdrBuilder<EthtoolMessage, EthtoolLinkModes, NoUserHeader>;
-type EthtoolReceiverHandle = NlRouterReceiverHandle<u16, Ethtoolmsghdr>;
-
 #[neli::neli_enum(serialized_type = "u8")]
-enum EthtoolMessage {
+enum EthtoolMsg {
     LinkModesGet = 4,
 }
-impl neli::consts::genl::Cmd for EthtoolMessage {}
+impl neli::consts::genl::Cmd for EthtoolMsg {}
 
 #[neli::neli_enum(serialized_type = "u16")]
-enum EthtoolLinkModes {
+enum EthtoolAttrLinkModes {
     Header = 1,
     Speed = 5,
 }
-impl neli::consts::genl::NlAttrType for EthtoolLinkModes {}
+impl neli::consts::genl::NlAttrType for EthtoolAttrLinkModes {}
 
 #[neli::neli_enum(serialized_type = "u16")]
-enum EthtoolHeader {
+enum EthtoolAttrHeader {
     DevName = 2,
 }
-impl neli::consts::genl::NlAttrType for EthtoolHeader {}
+impl neli::consts::genl::NlAttrType for EthtoolAttrHeader {}
+
+type Ethtoolmsghdr = Genlmsghdr<EthtoolMsg, EthtoolAttrLinkModes>;
+type EthtoolmsghdrBuilder = GenlmsghdrBuilder<EthtoolMsg, EthtoolAttrLinkModes, NoUserHeader>;
+type EthtoolReceiverHandle = NlRouterReceiverHandle<u16, Ethtoolmsghdr>;
 
 pub struct EthtoolSpeed {
     pub name: String,
     pub speed: i32,
+}
+
+fn parse_header_attrs(header: GenlAttrHandle<EthtoolAttrHeader>) -> Option<String> {
+    for attr in header.iter() {
+        match attr.nla_type().nla_type() {
+            EthtoolAttrHeader::DevName => {
+                let name = attr.get_payload_as_with_len::<String>().unwrap();
+                return Some(name);
+            }
+            _ => (),
+        }
+    }
+    return None;
 }
 
 fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Result<EthtoolSpeed> {
@@ -44,19 +57,11 @@ fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Result<EthtoolSpeed> {
 
     for attr in resp.attrs().iter() {
         match attr.nla_type().nla_type() {
-            EthtoolLinkModes::Header => {
-                let nested_handle = attr.get_attr_handle::<EthtoolHeader>().unwrap();
-                for nested in nested_handle.iter() {
-                    match nested.nla_type().nla_type() {
-                        EthtoolHeader::DevName => {
-                            let n = nested.get_payload_as_with_len::<String>().unwrap();
-                            name = Some(n);
-                        }
-                        _ => (),
-                    }
-                }
+            EthtoolAttrLinkModes::Header => {
+                let header = attr.get_attr_handle::<EthtoolAttrHeader>().unwrap();
+                name = parse_header_attrs(header);
             }
-            EthtoolLinkModes::Speed => {
+            EthtoolAttrLinkModes::Speed => {
                 speed = attr.get_payload_as::<i32>().unwrap();
             }
             _ => (),
@@ -76,7 +81,7 @@ fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Result<EthtoolSpeed> {
 impl super::Linux {
     pub fn parse_ethtool(&self) -> Result<Vec<EthtoolSpeed>> {
         let req = EthtoolmsghdrBuilder::default()
-            .cmd(EthtoolMessage::LinkModesGet)
+            .cmd(EthtoolMsg::LinkModesGet)
             .version(1)
             .build()?;
         let recv: EthtoolReceiverHandle = self
