@@ -68,6 +68,7 @@ impl Linux {
         self.collect_fs(prom);
         self.collect_thermal(prom);
         self.collect_io(prom);
+        self.collect_net(prom);
     }
 
     fn collect_cpu(&self, prom: &Prom) {
@@ -121,6 +122,33 @@ impl Linux {
                 prom.io_write_kb
                     .with_label_values(&[&stat.name])
                     .set((stat.write_bytes / 1024).try_into().unwrap());
+            }
+        }
+    }
+
+    fn collect_net(&self, prom: &Prom) {
+        if let Ok(links) = self.parse_links() {
+            for link in links {
+                prom.net_rx_kb
+                    .with_label_values(&[&link.name])
+                    .set((link.rx / 1024).try_into().unwrap());
+                prom.net_tx_kb
+                    .with_label_values(&[&link.name])
+                    .set((link.tx / 1024).try_into().unwrap());
+            }
+        }
+
+        if let Ok(speeds) = self.parse_ethtool() {
+            for speed in speeds {
+                prom.net_link_speed
+                    .with_label_values(&[&speed.name])
+                    .set((speed.speed).try_into().unwrap());
+            }
+        }
+
+        if let Ok(routes) = self.parse_routes() {
+            for route in routes {
+                println!("gateway: {:?} oif {}", route.gateway, route.oif);
             }
         }
     }

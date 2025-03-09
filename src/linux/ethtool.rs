@@ -33,7 +33,7 @@ type Ethtoolmsghdr = Genlmsghdr<EthtoolMsg, EthtoolAttrLinkModes>;
 type EthtoolmsghdrBuilder = GenlmsghdrBuilder<EthtoolMsg, EthtoolAttrLinkModes, NoUserHeader>;
 type EthtoolReceiverHandle = NlRouterReceiverHandle<u16, Ethtoolmsghdr>;
 
-pub struct EthtoolSpeed {
+pub(super) struct LinkSpeed {
     pub name: String,
     pub speed: i32,
 }
@@ -52,7 +52,7 @@ fn parse_header_attrs(header: GenlAttrHandle<EthtoolAttrHeader>) -> Option<Strin
     None
 }
 
-fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Option<EthtoolSpeed> {
+fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Option<LinkSpeed> {
     let mut name = None;
     let mut speed = -1;
     for attr in resp.attrs().iter() {
@@ -69,7 +69,7 @@ fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Option<EthtoolSpeed> {
     }
 
     if name.is_some() && speed > 0 {
-        Some(EthtoolSpeed {
+        Some(LinkSpeed {
             name: name.unwrap(),
             speed,
         })
@@ -79,7 +79,7 @@ fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Option<EthtoolSpeed> {
 }
 
 impl super::Linux {
-    pub fn parse_ethtool(&self) -> Result<Vec<EthtoolSpeed>> {
+    pub(super) fn parse_ethtool(&self) -> Result<Vec<LinkSpeed>> {
         let req = EthtoolmsghdrBuilder::default()
             .cmd(EthtoolMsg::LinkModesGet)
             .version(1)

@@ -40,9 +40,9 @@ pub struct Prom {
     pub io_write_kb: IntGaugeVec,
 
     /* net */
-    net_rx_kb: IntGaugeVec,
-    net_tx_kb: IntGaugeVec,
-    net_link_speed: IntGaugeVec,
+    pub net_rx_kb: IntGaugeVec,
+    pub net_tx_kb: IntGaugeVec,
+    pub net_link_speed: IntGaugeVec,
 }
 
 impl Prom {
@@ -168,31 +168,6 @@ impl Prom {
 
     pub fn collect(&self) {
         self.lin.collect(self);
-        self.collect_net();
-    }
-
-    fn collect_net(&self) {
-        let ifaces = self.lin.parse_links().expect("failed to parse rtnetlink");
-        for iface in ifaces {
-            self.net_rx_kb
-                .with_label_values(&[&iface.name])
-                .set((iface.rx / 1024).try_into().unwrap());
-            self.net_tx_kb
-                .with_label_values(&[&iface.name])
-                .set((iface.tx / 1024).try_into().unwrap());
-        }
-
-        let speeds = self.lin.parse_ethtool().expect("failed to parse ethtool");
-        for speed in speeds {
-            self.net_link_speed
-                .with_label_values(&[&speed.name])
-                .set((speed.speed).try_into().unwrap());
-        }
-
-        let routes = self.lin.parse_routes().expect("failed to parse routes");
-        for route in routes {
-            println!("gateway: {:?} oif {}", route.gateway, route.oif);
-        }
     }
 
     pub fn format_type(&self) -> &str {

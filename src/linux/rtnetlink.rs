@@ -12,13 +12,13 @@ use neli::{
 };
 use std::net;
 
-pub struct Link {
+pub(super) struct Link {
     pub name: String,
     pub rx: u64,
     pub tx: u64,
 }
 
-pub struct Route {
+pub(super) struct Route {
     pub gateway: net::IpAddr,
     pub oif: i32,
 }
@@ -82,7 +82,7 @@ fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
 }
 
 impl super::Linux {
-    pub fn parse_links(&self) -> Result<Vec<Link>> {
+    pub(super) fn parse_links(&self) -> Result<Vec<Link>> {
         let req = IfinfomsgBuilder::default()
             .ifi_family(RtAddrFamily::Unspecified)
             .ifi_type(Arphrd::Netrom)
@@ -106,7 +106,7 @@ impl super::Linux {
         Ok(ifaces)
     }
 
-    pub fn parse_routes(&self) -> Result<Vec<Route>> {
+    pub(super) fn parse_routes(&self) -> Result<Vec<Route>> {
         let req = RtmsgBuilder::default()
             .rtm_family(RtAddrFamily::Unspecified)
             .rtm_dst_len(0)
