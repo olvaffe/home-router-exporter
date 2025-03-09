@@ -75,39 +75,6 @@ pub fn parse_mountinfo_line(line: &str) -> Result<(&str, &str)> {
     Ok((src, dst))
 }
 
-pub fn parse_self_mountinfo(procfs: &Path) -> Result<Vec<ProcMountInfo>> {
-    let mut infos: Vec<ProcMountInfo> = Vec::new();
-
-    let f = File::open(procfs.join("self/mountinfo"))?;
-    let reader = BufReader::new(f);
-
-    for line in reader.lines() {
-        let line = line?;
-        let (src, dst) = parse_mountinfo_line(&line)?;
-        if !src.starts_with("/") {
-            continue;
-        }
-
-        let info = ProcMountInfo {
-            mount_source: src.to_string(),
-            mount_point: dst.to_string(),
-            total: 0,
-            free: 0,
-            avail: 0,
-        };
-        infos.push(info);
-    }
-
-    for info in &mut infos {
-        let [total, free, avail] = crate::libc::statvfs_size(&info.mount_point)?;
-        info.total = total;
-        info.free = free;
-        info.avail = avail;
-    }
-
-    Ok(infos)
-}
-
 impl super::Linux {
     pub fn parse_stat(&self) -> Result<ProcStat> {
         let mut reader = self.procfs_open("stat")?;
@@ -186,6 +153,28 @@ impl super::Linux {
     }
 
     pub fn parse_self_mountinfo(&self) -> Result<Vec<ProcMountInfo>> {
-        parse_self_mountinfo(&self.procfs_path)
+        let reader = self.procfs_open("self/mountinfo")?;
+
+        let mut infos: Vec<ProcMountInfo> = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            let (src, dst) = parse_mountinfo_line(&line)?;
+            if !src.starts_with("/") {
+                continue;
+            }
+
+            let [total, free, avail] = crate::libc::statvfs_size(dst)?;
+
+            let info = ProcMountInfo {
+                mount_source: src.to_string(),
+                mount_point: dst.to_string(),
+                total,
+                free,
+                avail,
+            };
+            infos.push(info);
+        }
+
+        Ok(infos)
     }
 }
