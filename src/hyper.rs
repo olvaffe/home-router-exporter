@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::prometheus::Prom;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use hyper::{Request, Response, body::Bytes};
 use std::{future, net, pin, sync};
 
@@ -39,16 +39,23 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
 }
 
 #[tokio::main]
-pub async fn run(prom: Prom) -> Result<()> {
-    let addr = net::SocketAddr::from(([127, 0, 0, 1], 3000));
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+pub async fn run(addr: net::SocketAddr, prom: Prom) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("failed to bind to {:?}", addr))?;
 
     let svc = Svc {
         prom: sync::Arc::new(prom),
     };
 
     loop {
-        let (stream, _) = listener.accept().await?;
+        let stream = match listener.accept().await {
+            Ok((stream, _)) => stream,
+            Err(e) => {
+                println!("failed to accept connection: {e:?}");
+                continue;
+            }
+        };
         let io = hyper_util::rt::TokioIo::new(stream);
         let svc = svc.clone();
 

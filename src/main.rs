@@ -10,8 +10,15 @@ mod libc;
 mod linux;
 mod prometheus;
 
+use std::net;
+
 fn main() {
-    let lin = linux::Linux::new("/proc", "/sys");
+    let procfs = "/proc";
+    let sysfs = "/sys";
+    let addr = net::SocketAddr::from(([0, 0, 0, 0], 3000));
+
+    let lin = linux::Linux::new(procfs, sysfs);
     let prom = prometheus::Prom::new(lin);
-    let _ = hyper::run(prom);
+
+    hyper::run(addr, prom).unwrap();
 }
