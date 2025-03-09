@@ -11,7 +11,7 @@ hyper-util = { version = "0.1", features = ["full"] }
 libc = "0.2"
 neli = "0.7.0-rc3"
 prometheus = "0.13"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [lints.clippy]
 multiple_unsafe_ops_per_block = "deny"
