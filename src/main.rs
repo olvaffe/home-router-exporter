@@ -6,6 +6,7 @@
 //! Home Router Exporter is a Prometheus exporter designed for home routers.
 
 mod hyper;
+mod libc;
 mod linux;
 mod prometheus;
 

@@ -38,26 +38,14 @@ impl Linux {
 
         let ethtool_id = genl_sock.resolve_genl_family("ethtool").unwrap();
 
-        // SAFETY: valid sysconf call with validation
-        let mut sysconf_nproc = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_CONF) };
-        if sysconf_nproc <= 0 {
-            sysconf_nproc = 1;
-        }
-
-        // SAFETY: valid sysconf call with validation
-        let mut sysconf_user_hz = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
-        if sysconf_user_hz <= 0 {
-            sysconf_user_hz = 100;
-        }
-
         Linux {
             procfs_path: procfs_path.as_ref().to_path_buf(),
             sysfs_path: sysfs_path.as_ref().to_path_buf(),
             rt_sock,
             genl_sock,
             ethtool_id,
-            sysconf_nproc: sysconf_nproc as _,
-            sysconf_user_hz: sysconf_user_hz as _,
+            sysconf_nproc: crate::libc::sysconf_nproc(),
+            sysconf_user_hz: crate::libc::sysconf_user_hz(),
         }
     }
 
