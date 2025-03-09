@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 use anyhow::{Context, Result, anyhow};
-use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -100,21 +99,10 @@ pub fn parse_self_mountinfo(procfs: &Path) -> Result<Vec<ProcMountInfo>> {
     }
 
     for info in &mut infos {
-        let path = CString::new(&*info.mount_point).unwrap();
-
-        let mut stat = std::mem::MaybeUninit::<libc::statfs64>::uninit();
-        // SAFETY:
-        let ret = unsafe { libc::statfs64(path.as_ptr(), stat.as_mut_ptr()) };
-        if ret != 0 {
-            println!("nonono");
-            return Err(anyhow!("bad"));
-        }
-        // SAFETY:
-        let stat = unsafe { stat.assume_init() };
-
-        info.total = stat.f_blocks * stat.f_bsize as u64;
-        info.free = stat.f_bfree * stat.f_bsize as u64;
-        info.avail = stat.f_bavail * stat.f_bsize as u64;
+        let [total, free, avail] = crate::libc::statvfs_size(&info.mount_point)?;
+        info.total = total;
+        info.free = free;
+        info.avail = avail;
     }
 
     Ok(infos)
