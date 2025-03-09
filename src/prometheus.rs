@@ -20,7 +20,7 @@ pub struct Prom {
     encoder: TextEncoder,
 
     /* cpu */
-    cpu_idle_ms: IntGauge,
+    pub cpu_idle_ms: IntGauge,
 
     /* memory */
     memory_total_kb: IntGauge,
@@ -173,10 +173,6 @@ impl Prom {
         self.collect_thermal();
         self.collect_io();
         self.collect_net();
-    }
-
-    pub fn update_cpu(&self, idle_ms: u64) {
-        self.cpu_idle_ms.set(idle_ms.try_into().unwrap());
     }
 
     fn collect_memory(&self) {

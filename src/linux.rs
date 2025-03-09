@@ -6,6 +6,7 @@ mod procfs;
 mod rtnetlink;
 mod sysfs;
 
+use crate::prometheus::Prom;
 use anyhow::{Context, Result};
 use neli::{consts::socket::NlFamily, router::synchronous::NlRouter};
 use std::{fs, io, path};
@@ -61,9 +62,14 @@ impl Linux {
         }
     }
 
-    pub fn collect(&self, prom: &crate::prometheus::Prom) {
-        let stat = self.parse_stat().expect("failed to parse /proc/stat");
-        prom.update_cpu(stat.idle_ms);
+    pub fn collect(&self, prom: &Prom) {
+        self.collect_cpu(prom);
+    }
+
+    fn collect_cpu(&self, prom: &Prom) {
+        if let Ok(stat) = self.parse_stat() {
+            prom.cpu_idle_ms.set(stat.idle_ms.try_into().unwrap());
+        }
     }
 
     fn procfs_open(&self, file: &str) -> Result<impl io::BufRead> {

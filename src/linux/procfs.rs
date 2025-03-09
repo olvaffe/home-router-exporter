@@ -17,9 +17,7 @@ pub struct ProcMemInfo {
     pub swap_free_kb: u64,
 }
 
-pub(super) struct ProcStat {
-    pub user_ms: u64,
-    pub system_ms: u64,
+pub(super) struct Stat {
     pub idle_ms: u64,
 }
 
@@ -127,7 +125,7 @@ impl super::Linux {
         })
     }
 
-    pub(super) fn parse_stat(&self) -> Result<ProcStat> {
+    pub(super) fn parse_stat(&self) -> Result<Stat> {
         let mut reader = self.procfs_open("stat")?;
 
         let mut line = String::new();
@@ -138,14 +136,12 @@ impl super::Linux {
         if cols.len() < 5 || cols[0] != "cpu" {
             return Err(anyhow!("failed to parse stat"));
         }
-        let [user_ms, system_ms, idle_ms] = [cols[1], cols[3], cols[4]].map(|col| {
+        let [_user_ms, _system_ms, idle_ms] = [cols[1], cols[3], cols[4]].map(|col| {
             let ticks: u64 = col.parse().unwrap_or(0);
             ticks * 1000 / self.sysconf_user_hz / self.sysconf_nproc
         });
 
-        Ok(ProcStat {
-            user_ms,
-            system_ms,
+        Ok(Stat {
             idle_ms,
         })
     }
