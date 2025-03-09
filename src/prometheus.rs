@@ -8,6 +8,12 @@ use prometheus::{
 };
 
 const NAMESPACE: &str = "home_router";
+const SUBSYS_CPU: &str = "cpu";
+const SUBSYS_MEMORY: &str = "memory";
+const SUBSYS_FILESYSTEM: &str = "filesystem";
+const SUBSYS_THERMAL: &str = "thermal";
+const SUBSYS_IO: &str = "io";
+const SUBSYS_NET: &str = "net";
 
 pub struct Prom {
     lin: linux::Linux,
@@ -47,7 +53,7 @@ impl Prom {
         let cpu_idle_ms = register_int_gauge!(
             Opts::new("idle_ms", "CPU idle time")
                 .namespace(NAMESPACE)
-                .subsystem("cpu")
+                .subsystem(SUBSYS_CPU)
         )
         .unwrap();
 
@@ -55,25 +61,25 @@ impl Prom {
         let memory_total_kb = register_int_gauge!(
             Opts::new("total_kb", "Total memory size")
                 .namespace(NAMESPACE)
-                .subsystem("memory")
+                .subsystem(SUBSYS_MEMORY)
         )
         .unwrap();
         let memory_available_kb = register_int_gauge!(
             Opts::new("available_kb", "Available memory size")
                 .namespace(NAMESPACE)
-                .subsystem("memory")
+                .subsystem(SUBSYS_MEMORY)
         )
         .unwrap();
         let swap_total_kb = register_int_gauge!(
             Opts::new("swap_total_kb", "Total swap size")
                 .namespace(NAMESPACE)
-                .subsystem("memory")
+                .subsystem(SUBSYS_MEMORY)
         )
         .unwrap();
         let swap_free_kb = register_int_gauge!(
             Opts::new("swap_free_kb", "Free swap size")
                 .namespace(NAMESPACE)
-                .subsystem("memory")
+                .subsystem(SUBSYS_MEMORY)
         )
         .unwrap();
 
@@ -81,14 +87,14 @@ impl Prom {
         let fs_total_kb = register_int_gauge_vec!(
             Opts::new("total_kb", "Total filesystem size")
                 .namespace(NAMESPACE)
-                .subsystem("filesystem"),
+                .subsystem(SUBSYS_FILESYSTEM),
             &["src", "dst"]
         )
         .unwrap();
         let fs_available_kb = register_int_gauge_vec!(
             Opts::new("available_kb", "Available filesystem size")
                 .namespace(NAMESPACE)
-                .subsystem("filesystem"),
+                .subsystem(SUBSYS_FILESYSTEM),
             &["src", "dst"]
         )
         .unwrap();
@@ -97,7 +103,7 @@ impl Prom {
         let thermal_current_mc = register_int_gauge_vec!(
             Opts::new("current_mc", "Current temperature")
                 .namespace(NAMESPACE)
-                .subsystem("thermal"),
+                .subsystem(SUBSYS_THERMAL),
             &["type"]
         )
         .unwrap();
@@ -106,14 +112,14 @@ impl Prom {
         let io_read_kb = register_int_gauge_vec!(
             Opts::new("read_kb", "Total read size")
                 .namespace(NAMESPACE)
-                .subsystem("io"),
+                .subsystem(SUBSYS_IO),
             &["block"]
         )
         .unwrap();
         let io_write_kb = register_int_gauge_vec!(
             Opts::new("write_kb", "Total write size")
                 .namespace(NAMESPACE)
-                .subsystem("io"),
+                .subsystem(SUBSYS_IO),
             &["block"]
         )
         .unwrap();
@@ -122,21 +128,21 @@ impl Prom {
         let net_rx_kb = register_int_gauge_vec!(
             Opts::new("rx_kb", "Total rx size")
                 .namespace(NAMESPACE)
-                .subsystem("net"),
+                .subsystem(SUBSYS_NET),
             &["netdev"]
         )
         .unwrap();
         let net_tx_kb = register_int_gauge_vec!(
             Opts::new("tx_kb", "Total tx size")
                 .namespace(NAMESPACE)
-                .subsystem("net"),
+                .subsystem(SUBSYS_NET),
             &["netdev"]
         )
         .unwrap();
         let net_link_speed = register_int_gauge_vec!(
             Opts::new("link_speed", "Link speed")
                 .namespace(NAMESPACE)
-                .subsystem("net"),
+                .subsystem(SUBSYS_NET),
             &["netdev"]
         )
         .unwrap();
@@ -160,25 +166,21 @@ impl Prom {
         }
     }
 
-    pub fn format_type(&self) -> &str {
-        self.encoder.format_type()
+    pub fn collect(&self) {
+        self.collect_cpu();
+        self.collect_memory();
+        self.collect_fs();
+        self.collect_thermal();
+        self.collect_io();
+        self.collect_net();
     }
 
-    pub fn update(&self) {
-        self.update_cpu();
-        self.update_memory();
-        self.update_fs();
-        self.update_thermal();
-        self.update_io();
-        self.update_net();
-    }
-
-    fn update_cpu(&self) {
+    fn collect_cpu(&self) {
         let stat = self.lin.parse_stat().expect("failed to parse /proc/stat");
         self.cpu_idle_ms.set(stat.idle_ms.try_into().unwrap());
     }
 
-    fn update_memory(&self) {
+    fn collect_memory(&self) {
         let meminfo = self
             .lin
             .parse_meminfo()
@@ -193,7 +195,7 @@ impl Prom {
             .set(meminfo.swap_free_kb.try_into().unwrap());
     }
 
-    fn update_fs(&self) {
+    fn collect_fs(&self) {
         let mountinfos = self
             .lin
             .parse_self_mountinfo()
@@ -208,7 +210,7 @@ impl Prom {
         }
     }
 
-    fn update_thermal(&self) {
+    fn collect_thermal(&self) {
         let zones = self
             .lin
             .parse_class_thermal()
@@ -220,7 +222,7 @@ impl Prom {
         }
     }
 
-    fn update_io(&self) {
+    fn collect_io(&self) {
         let diskstats = self
             .lin
             .parse_diskstats()
@@ -235,7 +237,7 @@ impl Prom {
         }
     }
 
-    fn update_net(&self) {
+    fn collect_net(&self) {
         let ifaces = self.lin.parse_links().expect("failed to parse rtnetlink");
         for iface in ifaces {
             self.net_rx_kb
@@ -259,7 +261,11 @@ impl Prom {
         }
     }
 
-    pub fn gather(&self) -> Vec<u8> {
+    pub fn format_type(&self) -> &str {
+        self.encoder.format_type()
+    }
+
+    pub fn encode(&self) -> Vec<u8> {
         let metrics = prometheus::gather();
 
         let mut buf = Vec::new();

@@ -20,8 +20,8 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
     fn call(&self, req: Request<hyper::body::Incoming>) -> Self::Future {
         let resp = match req.uri().path() {
             "/metrics" => {
-                self.prom.update();
-                let buf = self.prom.gather();
+                self.prom.collect();
+                let buf = self.prom.encode();
 
                 Response::builder()
                     .header(hyper::header::CONTENT_TYPE, self.prom.format_type())
