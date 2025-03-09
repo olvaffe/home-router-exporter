@@ -66,6 +66,7 @@ impl Linux {
         self.collect_cpu(prom);
         self.collect_mem(prom);
         self.collect_fs(prom);
+        self.collect_thermal(prom);
     }
 
     fn collect_cpu(&self, prom: &Prom) {
@@ -96,6 +97,16 @@ impl Linux {
                 prom.fs_available_kb
                     .with_label_values(&[&info.mount_source, &info.mount_point])
                     .set((info.avail / 1024).try_into().unwrap());
+            }
+        }
+    }
+
+    fn collect_thermal(&self, prom: &Prom) {
+        if let Ok(zones) = self.parse_class_thermal() {
+            for zone in zones {
+                prom.thermal_current_mc
+                    .with_label_values(&[&zone.name])
+                    .set((zone.temp).try_into().unwrap());
             }
         }
     }

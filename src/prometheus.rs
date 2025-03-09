@@ -33,7 +33,7 @@ pub struct Prom {
     pub fs_available_kb: IntGaugeVec,
 
     /* thermal */
-    thermal_current_mc: IntGaugeVec,
+    pub thermal_current_mc: IntGaugeVec,
 
     /* io */
     io_read_kb: IntGaugeVec,
@@ -168,21 +168,8 @@ impl Prom {
 
     pub fn collect(&self) {
         self.lin.collect(self);
-        self.collect_thermal();
         self.collect_io();
         self.collect_net();
-    }
-
-    fn collect_thermal(&self) {
-        let zones = self
-            .lin
-            .parse_class_thermal()
-            .expect("failed to parse /sys/class/thermal");
-        for zone in zones {
-            self.thermal_current_mc
-                .with_label_values(&[&zone.name])
-                .set((zone.temp).try_into().unwrap());
-        }
     }
 
     fn collect_io(&self) {

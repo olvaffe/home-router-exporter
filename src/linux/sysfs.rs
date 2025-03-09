@@ -4,13 +4,12 @@
 use anyhow::Result;
 use std::fs;
 
-pub struct SysThermalZone {
-    pub id: u64,
+pub(super) struct ThermalZone {
     pub name: String,
     pub temp: u64,
 }
 
-fn parse_thermal_zone_device(dir: fs::DirEntry, id: u64) -> Result<SysThermalZone> {
+fn parse_thermal_zone_device(dir: fs::DirEntry, _id: u64) -> Result<ThermalZone> {
     let dir_path = dir.path();
     let type_path = dir_path.join("type");
     let temp_path = dir_path.join("temp");
@@ -18,11 +17,11 @@ fn parse_thermal_zone_device(dir: fs::DirEntry, id: u64) -> Result<SysThermalZon
     let name = super::read_string(type_path)?;
     let temp = super::read_u64(temp_path)?;
 
-    Ok(SysThermalZone { id, name, temp })
+    Ok(ThermalZone { name, temp })
 }
 
 impl super::Linux {
-    pub fn parse_class_thermal(&self) -> Result<Vec<SysThermalZone>> {
+    pub(super) fn parse_class_thermal(&self) -> Result<Vec<ThermalZone>> {
         let dirs = self.sysfs_read_dir("class/thermal")?;
 
         let mut zones = Vec::new();
