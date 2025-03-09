@@ -1,7 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use neli::{
     attr::Attribute,
     consts::nl::NlmF,
@@ -48,13 +48,13 @@ fn parse_header_attrs(header: GenlAttrHandle<EthtoolAttrHeader>) -> Option<Strin
             _ => (),
         }
     }
-    return None;
+
+    None
 }
 
-fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Result<EthtoolSpeed> {
+fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Option<EthtoolSpeed> {
     let mut name = None;
     let mut speed = -1;
-
     for attr in resp.attrs().iter() {
         match attr.nla_type().nla_type() {
             EthtoolAttrLinkModes::Header => {
@@ -69,12 +69,12 @@ fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Result<EthtoolSpeed> {
     }
 
     if name.is_some() && speed > 0 {
-        Ok(EthtoolSpeed {
+        Some(EthtoolSpeed {
             name: name.unwrap(),
             speed,
         })
     } else {
-        Err(anyhow!(""))
+        None
     }
 }
 
@@ -97,9 +97,8 @@ impl super::Linux {
                 _ => continue,
             };
 
-            match parse_link_modes_get_response(resp) {
-                Ok(speed) => ifaces.push(speed),
-                _ => (),
+            if let Some(speed) = parse_link_modes_get_response(resp) {
+                ifaces.push(speed);
             }
         }
 
