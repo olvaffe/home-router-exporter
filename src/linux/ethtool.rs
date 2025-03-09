@@ -1,14 +1,18 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use neli::{
     attr::Attribute,
     consts::nl::NlmF,
     genl::{Genlmsghdr, GenlmsghdrBuilder, NoUserHeader},
     nl::NlPayload,
-    router::synchronous::NlRouter,
+    router::synchronous::{NlRouter, NlRouterReceiverHandle},
 };
+
+type Ethtoolmsghdr = Genlmsghdr<EthtoolMessage, EthtoolLinkModes>;
+type EthtoolmsghdrBuilder = GenlmsghdrBuilder<EthtoolMessage, EthtoolLinkModes, NoUserHeader>;
+type EthtoolReceiverHandle = NlRouterReceiverHandle<u16, Ethtoolmsghdr>;
 
 #[neli::neli_enum(serialized_type = "u8")]
 enum EthtoolMessage {
@@ -37,30 +41,29 @@ pub struct EthtoolSpeed {
 fn parse_ethtool(sock: &NlRouter, ethtool_id: u16) -> Result<Vec<EthtoolSpeed>> {
     let mut ifaces = Vec::new();
 
-    let req = GenlmsghdrBuilder::<EthtoolMessage, EthtoolLinkModes, NoUserHeader>::default()
+    let req = EthtoolmsghdrBuilder::default()
         .cmd(EthtoolMessage::LinkModesGet)
         .version(1)
         .build()?;
 
-    let mut recv = sock.send::<_, _, u16, Genlmsghdr<EthtoolMessage, EthtoolLinkModes>>(
-        ethtool_id,
-        NlmF::DUMP,
-        NlPayload::Payload(req),
-    )?;
+    let recv: EthtoolReceiverHandle = sock
+        .send(ethtool_id, NlmF::DUMP, NlPayload::Payload(req))
+        .context("failed to send to ethtool")?;
 
-    while let Some(Ok(msg)) = recv.next() {
-        let payload = match msg.nl_payload() {
-            NlPayload::Payload(p) => p,
+    for genlmsg in recv {
+        let genlmsg = genlmsg.context("got an ethtool error")?;
+        let resp = match genlmsg.nl_payload() {
+            NlPayload::Payload(resp) => resp,
             _ => continue,
         };
 
         let mut name = None;
         let mut speed = -1;
 
-        for attr in payload.attrs().iter() {
-            match attr.nla_type().nla_type() {
+        for genlattr in resp.attrs().iter() {
+            match genlattr.nla_type().nla_type() {
                 EthtoolLinkModes::Header => {
-                    let nested_handle = attr.get_attr_handle::<EthtoolHeader>().unwrap();
+                    let nested_handle = genlattr.get_attr_handle::<EthtoolHeader>().unwrap();
                     for nested in nested_handle.iter() {
                         match nested.nla_type().nla_type() {
                             EthtoolHeader::DevName => {
@@ -72,7 +75,7 @@ fn parse_ethtool(sock: &NlRouter, ethtool_id: u16) -> Result<Vec<EthtoolSpeed>> 
                     }
                 }
                 EthtoolLinkModes::Speed => {
-                    speed = attr.get_payload_as::<i32>().unwrap();
+                    speed = genlattr.get_payload_as::<i32>().unwrap();
                 }
                 _ => (),
             }
