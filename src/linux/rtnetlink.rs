@@ -1,6 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
+use anyhow::{Context, Result};
 use neli::{
     attr::Attribute,
     consts::{
@@ -23,56 +24,33 @@ pub struct Route {
     pub oif: i32,
 }
 
-pub fn parse_links(sock: &NlRouter) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
-    let mut ifaces = Vec::new();
-
-    let req = IfinfomsgBuilder::default()
-        .ifi_family(RtAddrFamily::Unspecified)
-        .ifi_type(Arphrd::Netrom)
-        .ifi_index(0)
-        .build()?;
-
-    let recv = sock.send::<_, _, Rtm, Ifinfomsg>(
-        Rtm::Getlink,
-        NlmF::REQUEST | NlmF::DUMP,
-        NlPayload::Payload(req),
-    )?;
-
-    for resp in recv {
-        if let Some(payload) = resp?.get_payload() {
-            let mut name = None;
-            let mut rx = 0;
-            let mut tx = 0;
-
-            let attr_handle = payload.rtattrs().get_attr_handle();
-            for attr in attr_handle.iter() {
-                match attr.rta_type() {
-                    Ifla::Ifname => {
-                        let n = attr.get_payload_as_with_len::<String>().unwrap();
-                        name = Some(n);
-                    }
-                    Ifla::Stats64 => {
-                        let n = attr.payload().as_ref();
-                        if n.len() >= 32 {
-                            rx = u64::from_le_bytes(n[16..24].try_into()?);
-                            tx = u64::from_le_bytes(n[24..32].try_into()?);
-                        }
-                    }
-                    _ => (),
+fn parse_get_link_response(resp: &Ifinfomsg) -> Option<Link> {
+    let mut name = None;
+    let mut rx = 0;
+    let mut tx = 0;
+    for attr in resp.rtattrs().iter() {
+        match attr.rta_type() {
+            Ifla::Ifname => {
+                let s = attr.get_payload_as_with_len::<String>().unwrap();
+                name = Some(s);
+            }
+            Ifla::Stats64 => {
+                let payload = attr.payload().as_ref();
+                // rtnl_link_stats64
+                if payload.len() >= 32 {
+                    rx = u64::from_ne_bytes(payload[16..24].try_into().unwrap());
+                    tx = u64::from_ne_bytes(payload[24..32].try_into().unwrap());
                 }
             }
-
-            if name.is_some() {
-                ifaces.push(Link {
-                    name: name.unwrap(),
-                    rx,
-                    tx,
-                });
-            }
+            _ => (),
         }
     }
 
-    Ok(ifaces)
+    if let Some(name) = name {
+        Some(Link { name, rx, tx })
+    } else {
+        None
+    }
 }
 
 pub fn parse_routes(sock: &NlRouter) -> Result<Vec<Route>, Box<dyn std::error::Error>> {
@@ -129,7 +107,30 @@ pub fn parse_routes(sock: &NlRouter) -> Result<Vec<Route>, Box<dyn std::error::E
 
 impl super::Linux {
     pub fn parse_links(&self) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
-        parse_links(&self.rt_sock)
+        let req = IfinfomsgBuilder::default()
+            .ifi_family(RtAddrFamily::Unspecified)
+            .ifi_type(Arphrd::Netrom)
+            .ifi_index(0)
+            .build()?;
+        let recv = self
+            .rt_sock
+            .send::<_, _, Rtm, Ifinfomsg>(Rtm::Getlink, NlmF::DUMP, NlPayload::Payload(req))
+            .context("failed to send to rtnetlink")?;
+
+        let mut ifaces = Vec::new();
+        for nlmsg in recv {
+            let nlmsg = nlmsg.context("got a rtnetlink error")?;
+            let resp = match nlmsg.nl_payload() {
+                NlPayload::Payload(resp) => resp,
+                _ => continue,
+            };
+
+            if let Some(link) = parse_get_link_response(resp) {
+                ifaces.push(link);
+            }
+        }
+
+        Ok(ifaces)
     }
 
     pub fn parse_routes(&self) -> Result<Vec<Route>, Box<dyn std::error::Error>> {
