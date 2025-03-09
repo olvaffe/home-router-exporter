@@ -36,8 +36,8 @@ pub struct Prom {
     pub thermal_current_mc: IntGaugeVec,
 
     /* io */
-    io_read_kb: IntGaugeVec,
-    io_write_kb: IntGaugeVec,
+    pub io_read_kb: IntGaugeVec,
+    pub io_write_kb: IntGaugeVec,
 
     /* net */
     net_rx_kb: IntGaugeVec,
@@ -168,23 +168,7 @@ impl Prom {
 
     pub fn collect(&self) {
         self.lin.collect(self);
-        self.collect_io();
         self.collect_net();
-    }
-
-    fn collect_io(&self) {
-        let diskstats = self
-            .lin
-            .parse_diskstats()
-            .expect("failed to parse /proc/diskstats");
-        for stat in diskstats {
-            self.io_read_kb
-                .with_label_values(&[&stat.name])
-                .set((stat.read_bytes / 1024).try_into().unwrap());
-            self.io_write_kb
-                .with_label_values(&[&stat.name])
-                .set((stat.write_bytes / 1024).try_into().unwrap());
-        }
     }
 
     fn collect_net(&self) {

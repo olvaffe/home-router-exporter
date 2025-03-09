@@ -4,7 +4,7 @@
 use anyhow::{Context, Result, anyhow};
 use std::io::BufRead;
 
-pub struct ProcDiskStat {
+pub(super) struct DiskStat {
     pub name: String,
     pub read_bytes: u64,
     pub write_bytes: u64,
@@ -28,7 +28,7 @@ pub(super) struct PidMountInfo {
     pub avail: u64,
 }
 
-fn parse_diskstats_line(line: &str) -> Result<ProcDiskStat> {
+fn parse_diskstats_line(line: &str) -> Result<DiskStat> {
     // 0:major 1:minor 2:name
     // 3:r_completed 4:r_merged 5:r_sectors 6:r_time
     // 7:w_completed 8:w_merged 9:w_sectors 10:w_time
@@ -43,7 +43,7 @@ fn parse_diskstats_line(line: &str) -> Result<ProcDiskStat> {
         sectors * 512
     });
 
-    Ok(ProcDiskStat {
+    Ok(DiskStat {
         name,
         read_bytes,
         write_bytes,
@@ -71,7 +71,7 @@ fn parse_pid_mountinfo_line(line: &str) -> Result<(&str, &str)> {
 }
 
 impl super::Linux {
-    pub fn parse_diskstats(&self) -> Result<Vec<ProcDiskStat>> {
+    pub(super) fn parse_diskstats(&self) -> Result<Vec<DiskStat>> {
         let reader = self.procfs_open("diskstats")?;
 
         let mut stats = Vec::new();
