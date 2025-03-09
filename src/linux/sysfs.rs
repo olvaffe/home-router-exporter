@@ -10,7 +10,7 @@ pub struct SysThermalZone {
     pub temp: u64,
 }
 
-fn parse_class_thermal_device(dir: fs::DirEntry, id: u64) -> Result<SysThermalZone> {
+fn parse_thermal_zone_device(dir: fs::DirEntry, id: u64) -> Result<SysThermalZone> {
     let dir_path = dir.path();
     let type_path = dir_path.join("type");
     let temp_path = dir_path.join("temp");
@@ -32,7 +32,7 @@ impl super::Linux {
             if let Some(name) = dir.file_name().to_str() {
                 if name.starts_with("thermal_zone") {
                     let id = name[12..].parse()?;
-                    let zone = parse_class_thermal_device(dir, id)?;
+                    let zone = parse_thermal_zone_device(dir, id)?;
                     zones.push(zone);
                 }
             }
