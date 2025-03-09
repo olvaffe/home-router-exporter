@@ -7,8 +7,10 @@ use neli::{
     consts::nl::NlmF,
     consts::rtnl::{Arphrd, Ifla, RtAddrFamily, RtScope, RtTable, Rta, Rtm, Rtn, Rtprot},
     nl::NlPayload,
+    router::synchronous::NlRouterReceiverHandle,
     rtnl::{Ifinfomsg, IfinfomsgBuilder, Rtmsg, RtmsgBuilder},
 };
+use std::net;
 
 pub struct Link {
     pub name: String,
@@ -17,7 +19,7 @@ pub struct Link {
 }
 
 pub struct Route {
-    pub gateway: std::net::IpAddr,
+    pub gateway: net::IpAddr,
     pub oif: i32,
 }
 
@@ -62,9 +64,9 @@ fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
             Rta::Gateway => {
                 let payload = attr.rta_payload().as_ref();
                 if let Ok(octets) = <&[u8; 4]>::try_from(payload) {
-                    gateway = Some(std::net::IpAddr::from(*octets));
+                    gateway = Some(net::IpAddr::from(*octets));
                 } else if let Ok(segments) = <&[u8; 16]>::try_from(payload) {
-                    gateway = Some(std::net::IpAddr::from(*segments));
+                    gateway = Some(net::IpAddr::from(*segments));
                 }
             }
             Rta::Oif => oif = attr.get_payload_as::<i32>().unwrap(),
@@ -80,15 +82,15 @@ fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
 }
 
 impl super::Linux {
-    pub fn parse_links(&self) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
+    pub fn parse_links(&self) -> Result<Vec<Link>> {
         let req = IfinfomsgBuilder::default()
             .ifi_family(RtAddrFamily::Unspecified)
             .ifi_type(Arphrd::Netrom)
             .ifi_index(0)
             .build()?;
-        let recv = self
+        let recv: NlRouterReceiverHandle<Rtm, Ifinfomsg> = self
             .rt_sock
-            .send::<_, _, Rtm, Ifinfomsg>(Rtm::Getlink, NlmF::DUMP, NlPayload::Payload(req))
+            .send(Rtm::Getlink, NlmF::DUMP, NlPayload::Payload(req))
             .context("failed to send to rtnetlink")?;
 
         let mut ifaces = Vec::new();
@@ -104,7 +106,7 @@ impl super::Linux {
         Ok(ifaces)
     }
 
-    pub fn parse_routes(&self) -> Result<Vec<Route>, Box<dyn std::error::Error>> {
+    pub fn parse_routes(&self) -> Result<Vec<Route>> {
         let req = RtmsgBuilder::default()
             .rtm_family(RtAddrFamily::Unspecified)
             .rtm_dst_len(0)
@@ -115,9 +117,9 @@ impl super::Linux {
             .rtm_scope(RtScope::Universe)
             .rtm_type(Rtn::Unspec)
             .build()?;
-        let recv = self
+        let recv: NlRouterReceiverHandle<Rtm, Rtmsg> = self
             .rt_sock
-            .send::<_, _, Rtm, Rtmsg>(Rtm::Getroute, NlmF::DUMP, NlPayload::Payload(req))
+            .send(Rtm::Getroute, NlmF::DUMP, NlPayload::Payload(req))
             .context("failed to send to rtnetlink")?;
 
         let mut routes = Vec::new();
