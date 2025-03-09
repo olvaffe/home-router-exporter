@@ -1,21 +1,21 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use std::net::SocketAddr;
-
+use crate::prometheus::Prom;
+use anyhow::Result;
 use hyper::{Request, Response, body::Bytes};
+use std::{future, net, pin, sync};
 
 #[derive(Clone)]
 struct Svc {
-    prom: std::sync::Arc<crate::prometheus::Prom>,
+    prom: sync::Arc<Prom>,
 }
 
 impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
     type Response = Response<http_body_util::Full<Bytes>>;
     type Error = hyper::Error;
-    type Future = std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>,
-    >;
+    type Future =
+        pin::Pin<Box<dyn future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn call(&self, req: Request<hyper::body::Incoming>) -> Self::Future {
         let resp = match req.uri().path() {
@@ -39,14 +39,12 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
 }
 
 #[tokio::main]
-pub async fn run(
-    prom: crate::prometheus::Prom,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+pub async fn run(prom: Prom) -> Result<()> {
+    let addr = net::SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     let svc = Svc {
-        prom: std::sync::Arc::new(prom),
+        prom: sync::Arc::new(prom),
     };
 
     loop {
