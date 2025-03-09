@@ -38,11 +38,22 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
     }
 }
 
+async fn serve_connection(stream: tokio::net::TcpStream, svc: Svc) {
+    let io = hyper_util::rt::TokioIo::new(stream);
+
+    let http = hyper::server::conn::http1::Builder::new();
+    let conn = http.serve_connection(io, svc);
+
+    if let Err(err) = conn.await {
+        println!("server connection error: {err:?}");
+    }
+}
+
 #[tokio::main]
 pub async fn run(addr: net::SocketAddr, prom: Prom) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
-        .with_context(|| format!("failed to bind to {:?}", addr))?;
+        .with_context(|| format!("failed to bind to {addr:?}"))?;
 
     let svc = Svc {
         prom: sync::Arc::new(prom),
@@ -51,23 +62,13 @@ pub async fn run(addr: net::SocketAddr, prom: Prom) -> Result<()> {
     loop {
         let stream = match listener.accept().await {
             Ok((stream, _)) => stream,
-            Err(e) => {
-                println!("failed to accept connection: {e:?}");
+            Err(err) => {
+                println!("failed to accept connection: {err:?}");
                 continue;
             }
         };
-        let io = hyper_util::rt::TokioIo::new(stream);
         let svc = svc.clone();
 
-        let future = async move {
-            if let Err(err) = hyper::server::conn::http1::Builder::new()
-                .serve_connection(io, svc)
-                .await
-            {
-                eprintln!("Error serving connection: {:?}", err);
-            }
-        };
-
-        tokio::task::spawn(future);
+        tokio::task::spawn(serve_connection(stream, svc.clone()));
     }
 }
