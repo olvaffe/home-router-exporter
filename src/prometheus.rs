@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::linux;
+use crate::unbound;
 
 use prometheus::{
     Encoder, IntGauge, IntGaugeVec, Opts, TextEncoder, register_int_gauge, register_int_gauge_vec,
@@ -17,6 +18,8 @@ const SUBSYS_NET: &str = "net";
 
 pub struct Prom {
     lin: linux::Linux,
+    unbound: unbound::Unbound,
+
     encoder: TextEncoder,
 
     /* cpu */
@@ -46,7 +49,7 @@ pub struct Prom {
 }
 
 impl Prom {
-    pub fn new(lin: linux::Linux) -> Self {
+    pub fn new(lin: linux::Linux, unbound: unbound::Unbound) -> Self {
         let encoder = TextEncoder::new();
 
         /* cpu */
@@ -149,6 +152,7 @@ impl Prom {
 
         Prom {
             lin,
+            unbound,
             encoder,
             cpu_idle_ms,
             memory_total_kb,
@@ -168,6 +172,7 @@ impl Prom {
 
     pub fn collect(&self) {
         self.lin.collect(self);
+        self.unbound.collect(self);
     }
 
     pub fn format_type(&self) -> &str {

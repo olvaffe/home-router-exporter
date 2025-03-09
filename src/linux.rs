@@ -15,6 +15,7 @@ pub struct Linux {
     procfs_path: path::PathBuf,
     sysfs_path: path::PathBuf,
 
+    // TODO: mutex?
     rt_sock: NlRouter,
     genl_sock: NlRouter,
 
