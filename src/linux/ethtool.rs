@@ -92,13 +92,10 @@ impl super::Linux {
         let mut ifaces = Vec::new();
         for genlmsg in recv {
             let genlmsg = genlmsg.context("got an ethtool error")?;
-            let resp = match genlmsg.nl_payload() {
-                NlPayload::Payload(resp) => resp,
-                _ => continue,
-            };
-
-            if let Some(speed) = parse_link_modes_get_response(resp) {
-                ifaces.push(speed);
+            if let Some(resp) = genlmsg.get_payload() {
+                if let Some(speed) = parse_link_modes_get_response(resp) {
+                    ifaces.push(speed);
+                }
             }
         }
 

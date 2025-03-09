@@ -4,10 +4,8 @@
 use anyhow::{Context, Result};
 use neli::{
     attr::Attribute,
-    consts::{
-        nl::NlmF,
-        rtnl::{Arphrd, Ifla, RtAddrFamily, RtScope, RtTable, Rta, Rtm, Rtn, Rtprot},
-    },
+    consts::nl::NlmF,
+    consts::rtnl::{Arphrd, Ifla, RtAddrFamily, RtScope, RtTable, Rta, Rtm, Rtn, Rtprot},
     nl::NlPayload,
     rtnl::{Ifinfomsg, IfinfomsgBuilder, Rtmsg, RtmsgBuilder},
 };
@@ -62,10 +60,10 @@ fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
     for attr in resp.rtattrs().iter() {
         match attr.rta_type() {
             Rta::Gateway => {
-                let p = attr.rta_payload().as_ref();
-                if let Ok(octets) = <&[u8; 4]>::try_from(p) {
+                let payload = attr.rta_payload().as_ref();
+                if let Ok(octets) = <&[u8; 4]>::try_from(payload) {
                     gateway = Some(std::net::IpAddr::from(*octets));
-                } else if let Ok(segments) = <&[u8; 16]>::try_from(p) {
+                } else if let Ok(segments) = <&[u8; 16]>::try_from(payload) {
                     gateway = Some(std::net::IpAddr::from(*segments));
                 }
             }
@@ -96,13 +94,10 @@ impl super::Linux {
         let mut ifaces = Vec::new();
         for nlmsg in recv {
             let nlmsg = nlmsg.context("got a rtnetlink error")?;
-            let resp = match nlmsg.nl_payload() {
-                NlPayload::Payload(resp) => resp,
-                _ => continue,
-            };
-
-            if let Some(link) = parse_get_link_response(resp) {
-                ifaces.push(link);
+            if let Some(resp) = nlmsg.get_payload() {
+                if let Some(link) = parse_get_link_response(resp) {
+                    ifaces.push(link);
+                }
             }
         }
 
@@ -128,12 +123,10 @@ impl super::Linux {
         let mut routes = Vec::new();
         for nlmsg in recv {
             let nlmsg = nlmsg.context("got a rtnetlink error")?;
-            let resp = match nlmsg.nl_payload() {
-                NlPayload::Payload(resp) => resp,
-                _ => continue,
-            };
-            if let Some(route) = parse_get_route_response(resp) {
-                routes.push(route);
+            if let Some(resp) = nlmsg.get_payload() {
+                if let Some(route) = parse_get_route_response(resp) {
+                    routes.push(route);
+                }
             }
         }
 
