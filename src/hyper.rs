@@ -49,8 +49,18 @@ async fn serve_connection(stream: tokio::net::TcpStream, svc: Svc) {
     }
 }
 
+async fn test_ping() -> Result<()> {
+    let payload = [0; 8];
+    let (_packet, duration) = surge_ping::ping("127.0.0.1".parse()?, &payload).await?;
+    println!("Ping took {:.3?}", duration);
+
+    Ok(())
+}
+
 #[tokio::main]
 pub async fn run(addr: net::SocketAddr, prom: Prom) -> Result<()> {
+    test_ping().await?;
+
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .with_context(|| format!("failed to bind to {addr:?}"))?;
