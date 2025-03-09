@@ -23,6 +23,18 @@ pub struct Linux {
     sysconf_user_hz: u64,
 }
 
+fn read_string(path: impl AsRef<path::Path>) -> Result<String> {
+    let mut s =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {:?}", path.as_ref()))?;
+    s.truncate(s.trim_end().len());
+    Ok(s)
+}
+
+fn read_u64(path: impl AsRef<path::Path>) -> Result<u64> {
+    let s = read_string(path)?;
+    Ok(s.parse::<u64>()?)
+}
+
 fn nl_socket(family: NlFamily) -> NlRouter {
     let (sock, _) = NlRouter::connect(family, None, neli::utils::Groups::empty()).unwrap();
     sock.enable_ext_ack(true).unwrap();
@@ -53,5 +65,10 @@ impl Linux {
         let path = self.procfs_path.join(file);
         let fp = fs::File::open(&path).with_context(|| format!("failed to open {:?}", path))?;
         Ok(io::BufReader::new(fp))
+    }
+
+    fn sysfs_read_dir(&self, dir: &str) -> Result<fs::ReadDir> {
+        let path = self.sysfs_path.join(dir);
+        fs::read_dir(&path).with_context(|| format!("failed to open {:?}", path))
     }
 }
