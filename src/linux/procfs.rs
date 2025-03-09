@@ -17,7 +17,7 @@ pub struct ProcMemInfo {
     pub swap_free_kb: u64,
 }
 
-pub struct ProcStat {
+pub(super) struct ProcStat {
     pub user_ms: u64,
     pub system_ms: u64,
     pub idle_ms: u64,
@@ -127,7 +127,7 @@ impl super::Linux {
         })
     }
 
-    pub fn parse_stat(&self) -> Result<ProcStat> {
+    pub(super) fn parse_stat(&self) -> Result<ProcStat> {
         let mut reader = self.procfs_open("stat")?;
 
         let mut line = String::new();

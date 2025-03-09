@@ -167,7 +167,7 @@ impl Prom {
     }
 
     pub fn collect(&self) {
-        self.collect_cpu();
+        self.lin.collect(self);
         self.collect_memory();
         self.collect_fs();
         self.collect_thermal();
@@ -175,9 +175,8 @@ impl Prom {
         self.collect_net();
     }
 
-    fn collect_cpu(&self) {
-        let stat = self.lin.parse_stat().expect("failed to parse /proc/stat");
-        self.cpu_idle_ms.set(stat.idle_ms.try_into().unwrap());
+    pub fn update_cpu(&self, idle_ms: u64) {
+        self.cpu_idle_ms.set(idle_ms.try_into().unwrap());
     }
 
     fn collect_memory(&self) {

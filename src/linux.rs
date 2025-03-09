@@ -61,6 +61,11 @@ impl Linux {
         }
     }
 
+    pub fn collect(&self, prom: &crate::prometheus::Prom) {
+        let stat = self.parse_stat().expect("failed to parse /proc/stat");
+        prom.update_cpu(stat.idle_ms);
+    }
+
     fn procfs_open(&self, file: &str) -> Result<impl io::BufRead> {
         let path = self.procfs_path.join(file);
         let fp = fs::File::open(&path).with_context(|| format!("failed to open {:?}", path))?;
