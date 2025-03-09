@@ -45,11 +45,7 @@ fn parse_get_link_response(resp: &Ifinfomsg) -> Option<Link> {
         }
     }
 
-    if let Some(name) = name {
-        Some(Link { name, rx, tx })
-    } else {
-        None
-    }
+    name.map(|name| Link { name, rx, tx })
 }
 
 fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
@@ -74,11 +70,7 @@ fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
         }
     }
 
-    if let Some(gateway) = gateway {
-        Some(Route { gateway, oif })
-    } else {
-        None
-    }
+    gateway.map(|gateway| Route { gateway, oif })
 }
 
 impl super::Linux {

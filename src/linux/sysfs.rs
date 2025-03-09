@@ -29,8 +29,8 @@ impl super::Linux {
             let dir = dir?;
 
             if let Some(name) = dir.file_name().to_str() {
-                if name.starts_with("thermal_zone") {
-                    let id = name[12..].parse()?;
+                if let Some(id) = name.strip_prefix("thermal_zone") {
+                    let id = id.parse()?;
                     let zone = parse_thermal_zone_device(dir, id)?;
                     zones.push(zone);
                 }

@@ -40,12 +40,9 @@ pub(super) struct LinkSpeed {
 
 fn parse_header_attrs(header: GenlAttrHandle<EthtoolAttrHeader>) -> Option<String> {
     for attr in header.iter() {
-        match attr.nla_type().nla_type() {
-            EthtoolAttrHeader::DevName => {
-                let name = attr.get_payload_as_with_len::<String>().unwrap();
-                return Some(name);
-            }
-            _ => (),
+        if attr.nla_type().nla_type() == &EthtoolAttrHeader::DevName {
+            let name = attr.get_payload_as_with_len::<String>().unwrap();
+            return Some(name);
         }
     }
 
@@ -68,11 +65,8 @@ fn parse_link_modes_get_response(resp: &Ethtoolmsghdr) -> Option<LinkSpeed> {
         }
     }
 
-    if name.is_some() && speed > 0 {
-        Some(LinkSpeed {
-            name: name.unwrap(),
-            speed,
-        })
+    if speed > 0 {
+        name.map(|name| LinkSpeed { name, speed })
     } else {
         None
     }

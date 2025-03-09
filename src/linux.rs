@@ -142,7 +142,7 @@ impl Linux {
             for speed in speeds {
                 prom.net_link_speed
                     .with_label_values(&[&speed.name])
-                    .set((speed.speed).try_into().unwrap());
+                    .set(speed.speed as _);
             }
         }
 
