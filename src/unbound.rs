@@ -34,7 +34,7 @@ impl Unbound {
     }
 
     pub fn collect(&self, prom: &Prom) {
-        if let Some(stats) = &*self.stats.lock().unwrap() {
+        if let Some(stats) = self.stats.lock().unwrap().take() {
             println!("query count: {}", stats.total_num_queries);
         } else {
             println!("no query count");
