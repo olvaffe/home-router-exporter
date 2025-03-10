@@ -33,10 +33,7 @@ impl Ping {
 
         let notify = tokio::sync::Notify::new();
 
-        let hosts = sync::Mutex::new(vec![
-            net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 0).into(),
-            net::SocketAddrV6::new(net::Ipv6Addr::LOCALHOST, 0, 0, 0).into(),
-        ]);
+        let hosts = sync::Mutex::new(Vec::new());
         let roundtrips = sync::Mutex::new(None);
 
         let ping = Ping {
@@ -56,6 +53,10 @@ impl Ping {
         });
 
         ping
+    }
+
+    pub fn set_hosts(&self, hosts: Vec<net::SocketAddr>) {
+        *self.hosts.lock().unwrap() = hosts;
     }
 
     pub fn collect(&self, _prom: &Prom) {

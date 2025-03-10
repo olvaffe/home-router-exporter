@@ -18,11 +18,6 @@ pub(super) struct Link {
     pub tx: u64,
 }
 
-pub(super) struct Route {
-    pub gateway: net::IpAddr,
-    pub oif: i32,
-}
-
 fn parse_get_link_response(resp: &Ifinfomsg) -> Option<Link> {
     let mut name = None;
     let mut rx = 0;
@@ -48,13 +43,13 @@ fn parse_get_link_response(resp: &Ifinfomsg) -> Option<Link> {
     name.map(|name| Link { name, rx, tx })
 }
 
-fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
+fn parse_get_route_response(resp: &Rtmsg) -> Option<net::SocketAddr> {
     if *resp.rtm_dst_len() != 0 {
         return None;
     }
 
     let mut gateway = None;
-    let mut oif = -1;
+    let mut oif = 0;
     for attr in resp.rtattrs().iter() {
         match attr.rta_type() {
             Rta::Gateway => {
@@ -65,12 +60,20 @@ fn parse_get_route_response(resp: &Rtmsg) -> Option<Route> {
                     gateway = Some(net::IpAddr::from(*segments));
                 }
             }
-            Rta::Oif => oif = attr.get_payload_as::<i32>().unwrap(),
+            Rta::Oif => oif = attr.get_payload_as::<u32>().unwrap(),
             _ => (),
         }
     }
 
-    gateway.map(|gateway| Route { gateway, oif })
+    gateway.map(|gateway| {
+        if let net::IpAddr::V6(addr) = gateway {
+            if addr.is_unicast_link_local() {
+                return net::SocketAddrV6::new(addr, 0, 0, oif).into();
+            }
+        }
+
+        net::SocketAddr::new(gateway, 0)
+    })
 }
 
 impl super::Linux {
@@ -98,7 +101,7 @@ impl super::Linux {
         Ok(ifaces)
     }
 
-    pub(super) fn parse_routes(&self) -> Result<Vec<Route>> {
+    pub(super) fn parse_routes(&self) -> Result<Vec<net::SocketAddr>> {
         let req = RtmsgBuilder::default()
             .rtm_family(RtAddrFamily::Unspecified)
             .rtm_dst_len(0)

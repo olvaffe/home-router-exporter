@@ -9,7 +9,7 @@ mod sysfs;
 use crate::prometheus::Prom;
 use anyhow::{Context, Result};
 use neli::{consts::socket::NlFamily, router::synchronous::NlRouter};
-use std::{fs, io, path};
+use std::{fs, io, net, path};
 
 pub struct Linux {
     procfs_path: path::PathBuf,
@@ -61,6 +61,10 @@ impl Linux {
             sysconf_nproc: crate::libc::sysconf_nproc(),
             sysconf_user_hz: crate::libc::sysconf_user_hz(),
         }
+    }
+
+    pub fn get_gateways(&self) -> Vec<net::SocketAddr> {
+        self.parse_routes().unwrap_or_default()
     }
 
     pub fn collect(&self, prom: &Prom) {
@@ -149,13 +153,6 @@ impl Linux {
                 prom.net_link_speed
                     .with_label_values(&[&speed.name])
                     .set(speed.speed as _);
-            }
-        }
-
-        if let Ok(routes) = self.parse_routes() {
-            // TODO
-            for route in routes {
-                println!("gateway: {:?} oif {}", route.gateway, route.oif);
             }
         }
     }

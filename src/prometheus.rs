@@ -176,6 +176,8 @@ impl Prom {
     }
 
     pub fn collect(&self) {
+        self.ping.set_hosts(self.lin.get_gateways());
+
         self.lin.collect(self);
         self.unbound.collect(self);
         self.ping.collect(self);
