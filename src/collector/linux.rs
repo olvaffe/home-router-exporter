@@ -78,7 +78,7 @@ impl Linux {
 
     fn collect_cpu(&self, prom: &Prom) {
         if let Ok(stat) = self.parse_stat() {
-            prom.cpu_idle_ms.set(stat.idle_ms.try_into().unwrap());
+            prom.cpu.idle_ms.set(stat.idle_ms.try_into().unwrap());
         }
     }
 

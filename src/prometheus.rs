@@ -15,6 +15,10 @@ const SUBSYS_THERMAL: &str = "thermal";
 const SUBSYS_IO: &str = "io";
 const SUBSYS_NET: &str = "net";
 
+pub struct CpuMetrics {
+    pub idle_ms: IntGauge,
+}
+
 pub struct Prom {
     lin: linux::Linux,
     unbound: sync::Arc<unbound::Unbound>,
@@ -22,8 +26,7 @@ pub struct Prom {
 
     encoder: TextEncoder,
 
-    /* cpu */
-    pub cpu_idle_ms: IntGauge,
+    pub cpu: CpuMetrics,
 
     /* memory */
     pub memory_total_kb: IntGauge,
@@ -58,13 +61,14 @@ impl Prom {
     ) -> Self {
         let encoder = TextEncoder::new();
 
-        /* cpu */
-        let cpu_idle_ms = register_int_gauge!(
-            Opts::new("idle_ms", "CPU idle time")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_CPU)
-        )
-        .unwrap();
+        let cpu = CpuMetrics {
+            idle_ms: register_int_gauge!(
+                Opts::new("idle_ms", "CPU idle time")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_CPU)
+            )
+            .unwrap(),
+        };
 
         /* memory */
         let memory_total_kb = register_int_gauge!(
@@ -174,7 +178,7 @@ impl Prom {
             unbound,
             ping,
             encoder,
-            cpu_idle_ms,
+            cpu,
             memory_total_kb,
             memory_available_kb,
             swap_total_kb,
