@@ -1,13 +1,11 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use crate::linux;
-use crate::ping;
-use crate::unbound;
-
+use crate::{linux, ping, unbound};
 use prometheus::{
     Encoder, IntGauge, IntGaugeVec, Opts, TextEncoder, register_int_gauge, register_int_gauge_vec,
 };
+use std::sync;
 
 const NAMESPACE: &str = "home_router";
 const SUBSYS_CPU: &str = "cpu";
@@ -19,7 +17,7 @@ const SUBSYS_NET: &str = "net";
 
 pub struct Prom {
     lin: linux::Linux,
-    unbound: unbound::Unbound,
+    unbound: sync::Arc<unbound::Unbound>,
     ping: ping::Ping,
 
     encoder: TextEncoder,
@@ -51,7 +49,7 @@ pub struct Prom {
 }
 
 impl Prom {
-    pub fn new(lin: linux::Linux, unbound: unbound::Unbound, ping: ping::Ping) -> Self {
+    pub fn new(lin: linux::Linux, unbound: sync::Arc<unbound::Unbound>, ping: ping::Ping) -> Self {
         let encoder = TextEncoder::new();
 
         /* cpu */

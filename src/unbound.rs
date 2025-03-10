@@ -8,7 +8,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub struct Unbound {
     path: path::PathBuf,
-    stats: sync::Arc<sync::Mutex<Option<Stats>>>,
+    stats: sync::Mutex<Option<Stats>>,
+    notify: tokio::sync::Notify,
 }
 
 struct Stats {
@@ -41,11 +42,20 @@ async fn parse_stats(path: path::PathBuf) -> Result<Stats> {
 }
 
 impl Unbound {
-    pub fn new(path: impl AsRef<path::Path>) -> Self {
-        Unbound {
+    pub fn new(path: impl AsRef<path::Path>) -> sync::Arc<Self> {
+        let unbound = Unbound {
             path: path.as_ref().to_path_buf(),
-            stats: sync::Arc::new(sync::Mutex::new(None)),
-        }
+            stats: sync::Mutex::new(None),
+            notify: tokio::sync::Notify::new(),
+        };
+        let unbound = sync::Arc::new(unbound);
+
+        let clone = unbound.clone();
+        tokio::task::spawn(async move {
+            clone.task().await;
+        });
+
+        unbound
     }
 
     pub fn collect(&self, prom: &Prom) {
@@ -55,10 +65,13 @@ impl Unbound {
             println!("no query count");
         }
 
-        let path = self.path.clone();
-        let stats = self.stats.clone();
-        tokio::task::spawn(async move {
-            *stats.lock().unwrap() = parse_stats(path).await.ok();
-        });
+        self.notify.notify_one();
+    }
+
+    async fn task(&self) {
+        loop {
+            self.notify.notified().await;
+            *self.stats.lock().unwrap() = parse_stats(self.path.clone()).await.ok();
+        }
     }
 }
