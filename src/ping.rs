@@ -12,12 +12,12 @@ pub struct Ping {
     payload: [u8; 56],
     notify: tokio::sync::Notify,
 
-    hosts: sync::Mutex<Vec<net::IpAddr>>,
+    hosts: sync::Mutex<Vec<net::SocketAddr>>,
     roundtrips: sync::Mutex<Option<Vec<Roundtrip>>>,
 }
 
 struct Roundtrip {
-    host: net::IpAddr,
+    host: net::SocketAddr,
     duration: time::Duration,
 }
 
@@ -34,8 +34,8 @@ impl Ping {
         let notify = tokio::sync::Notify::new();
 
         let hosts = sync::Mutex::new(vec![
-            net::IpAddr::V4(net::Ipv4Addr::LOCALHOST),
-            net::IpAddr::V6(net::Ipv6Addr::LOCALHOST),
+            net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 0).into(),
+            net::SocketAddrV6::new(net::Ipv6Addr::LOCALHOST, 0, 0, 0).into(),
         ]);
         let roundtrips = sync::Mutex::new(None);
 
@@ -86,8 +86,8 @@ impl Ping {
         let mut pingers = Vec::new();
         for host in &hosts {
             let pinger = match host {
-                net::IpAddr::V4(_) => self.client_v4.pinger(*host, self.ident),
-                net::IpAddr::V6(_) => self.client_v6.pinger(*host, self.ident),
+                net::SocketAddr::V4(_) => self.client_v4.pinger(host.ip(), self.ident),
+                net::SocketAddr::V6(_) => self.client_v6.pinger(host.ip(), self.ident),
             }
             .await;
             pingers.push(pinger);
