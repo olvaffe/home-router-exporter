@@ -35,9 +35,7 @@ impl Unbound {
 
     pub fn collect(&self, prom: &Prom) {
         if let Some(stats) = self.stats.lock().unwrap().take() {
-            println!("query count: {}", stats.total_num_queries);
-        } else {
-            println!("no query count");
+            prom.net_dns_query_count.set(stats.total_num_queries as _);
         }
 
         self.notify.notify_one();

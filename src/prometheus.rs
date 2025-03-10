@@ -47,6 +47,7 @@ pub struct Prom {
     pub net_tx_kb: IntGaugeVec,
     pub net_link_speed: IntGaugeVec,
     pub net_gateway_latency: IntGaugeVec,
+    pub net_dns_query_count: IntGauge,
 }
 
 impl Prom {
@@ -161,6 +162,12 @@ impl Prom {
             &["gateway"]
         )
         .unwrap();
+        let net_dns_query_count = register_int_gauge!(
+            Opts::new("dns_query_count", "DNS total query count")
+                .namespace(NAMESPACE)
+                .subsystem(SUBSYS_NET)
+        )
+        .unwrap();
 
         Prom {
             lin,
@@ -181,6 +188,7 @@ impl Prom {
             net_tx_kb,
             net_link_speed,
             net_gateway_latency,
+            net_dns_query_count,
         }
     }
 
