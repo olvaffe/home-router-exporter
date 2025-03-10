@@ -40,6 +40,14 @@ pub struct IoMetrics {
     pub write_kb: IntGaugeVec,
 }
 
+pub struct NetMetrics {
+    pub rx_kb: IntGaugeVec,
+    pub tx_kb: IntGaugeVec,
+    pub link_speed: IntGaugeVec,
+    pub gateway_latency: IntGaugeVec,
+    pub dns_query_count: IntGauge,
+}
+
 pub struct Prom {
     lin: linux::Linux,
     unbound: sync::Arc<unbound::Unbound>,
@@ -52,13 +60,7 @@ pub struct Prom {
     pub fs: FilesystemMetrics,
     pub thermal: ThermalMetrics,
     pub io: IoMetrics,
-
-    /* net */
-    pub net_rx_kb: IntGaugeVec,
-    pub net_tx_kb: IntGaugeVec,
-    pub net_link_speed: IntGaugeVec,
-    pub net_gateway_latency: IntGaugeVec,
-    pub net_dns_query_count: IntGauge,
+    pub net: NetMetrics,
 }
 
 impl Prom {
@@ -149,41 +151,42 @@ impl Prom {
             .unwrap(),
         };
 
-        /* net */
-        let net_rx_kb = register_int_gauge_vec!(
-            Opts::new("rx_kb", "Total rx size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_NET),
-            &["netdev"]
-        )
-        .unwrap();
-        let net_tx_kb = register_int_gauge_vec!(
-            Opts::new("tx_kb", "Total tx size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_NET),
-            &["netdev"]
-        )
-        .unwrap();
-        let net_link_speed = register_int_gauge_vec!(
-            Opts::new("link_speed", "Link speed")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_NET),
-            &["netdev"]
-        )
-        .unwrap();
-        let net_gateway_latency = register_int_gauge_vec!(
-            Opts::new("gateway_latency", "Gateway latency")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_NET),
-            &["gateway"]
-        )
-        .unwrap();
-        let net_dns_query_count = register_int_gauge!(
-            Opts::new("dns_query_count", "DNS total query count")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_NET)
-        )
-        .unwrap();
+        let net = NetMetrics {
+            rx_kb: register_int_gauge_vec!(
+                Opts::new("rx_kb", "Total rx size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_NET),
+                &["netdev"]
+            )
+            .unwrap(),
+            tx_kb: register_int_gauge_vec!(
+                Opts::new("tx_kb", "Total tx size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_NET),
+                &["netdev"]
+            )
+            .unwrap(),
+            link_speed: register_int_gauge_vec!(
+                Opts::new("link_speed", "Link speed")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_NET),
+                &["netdev"]
+            )
+            .unwrap(),
+            gateway_latency: register_int_gauge_vec!(
+                Opts::new("gateway_latency", "Gateway latency")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_NET),
+                &["gateway"]
+            )
+            .unwrap(),
+            dns_query_count: register_int_gauge!(
+                Opts::new("dns_query_count", "DNS total query count")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_NET)
+            )
+            .unwrap(),
+        };
 
         Prom {
             lin,
@@ -195,11 +198,7 @@ impl Prom {
             fs,
             thermal,
             io,
-            net_rx_kb,
-            net_tx_kb,
-            net_link_speed,
-            net_gateway_latency,
-            net_dns_query_count,
+            net,
         }
     }
 

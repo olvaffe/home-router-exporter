@@ -76,7 +76,8 @@ impl Ping {
                     cmp::max(roundtrip.duration.as_millis(), 1)
                 };
 
-                prom.net_gateway_latency
+                prom.net
+                    .gateway_latency
                     .with_label_values(&[&host])
                     .set(latency as _);
             }

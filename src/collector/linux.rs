@@ -148,10 +148,12 @@ impl Linux {
 
         if let Ok(links) = self.parse_links() {
             for link in links {
-                prom.net_rx_kb
+                prom.net
+                    .rx_kb
                     .with_label_values(&[&link.name])
                     .set((link.rx / 1024).try_into().unwrap());
-                prom.net_tx_kb
+                prom.net
+                    .tx_kb
                     .with_label_values(&[&link.name])
                     .set((link.tx / 1024).try_into().unwrap());
             }
@@ -159,7 +161,8 @@ impl Linux {
 
         if let Ok(speeds) = self.parse_ethtool() {
             for speed in speeds {
-                prom.net_link_speed
+                prom.net
+                    .link_speed
                     .with_label_values(&[&speed.name])
                     .set(speed.speed as _);
             }
