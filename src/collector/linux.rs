@@ -84,13 +84,13 @@ impl Linux {
 
     fn collect_mem(&self, prom: &Prom) {
         if let Ok(meminfo) = self.parse_meminfo() {
-            prom.memory_total_kb
+            prom.mem.total_kb
                 .set(meminfo.mem_total_kb.try_into().unwrap());
-            prom.memory_available_kb
+            prom.mem.available_kb
                 .set(meminfo.mem_avail_kb.try_into().unwrap());
-            prom.swap_total_kb
+            prom.mem.swap_total_kb
                 .set(meminfo.swap_total_kb.try_into().unwrap());
-            prom.swap_free_kb
+            prom.mem.swap_free_kb
                 .set(meminfo.swap_free_kb.try_into().unwrap());
         }
     }

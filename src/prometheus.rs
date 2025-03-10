@@ -19,6 +19,13 @@ pub struct CpuMetrics {
     pub idle_ms: IntGauge,
 }
 
+pub struct MemoryMetrics {
+    pub total_kb: IntGauge,
+    pub available_kb: IntGauge,
+    pub swap_total_kb: IntGauge,
+    pub swap_free_kb: IntGauge,
+}
+
 pub struct Prom {
     lin: linux::Linux,
     unbound: sync::Arc<unbound::Unbound>,
@@ -27,12 +34,7 @@ pub struct Prom {
     encoder: TextEncoder,
 
     pub cpu: CpuMetrics,
-
-    /* memory */
-    pub memory_total_kb: IntGauge,
-    pub memory_available_kb: IntGauge,
-    pub swap_total_kb: IntGauge,
-    pub swap_free_kb: IntGauge,
+    pub mem: MemoryMetrics,
 
     /* filesystem */
     pub fs_total_kb: IntGaugeVec,
@@ -70,31 +72,32 @@ impl Prom {
             .unwrap(),
         };
 
-        /* memory */
-        let memory_total_kb = register_int_gauge!(
-            Opts::new("total_kb", "Total memory size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_MEMORY)
-        )
-        .unwrap();
-        let memory_available_kb = register_int_gauge!(
-            Opts::new("available_kb", "Available memory size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_MEMORY)
-        )
-        .unwrap();
-        let swap_total_kb = register_int_gauge!(
-            Opts::new("swap_total_kb", "Total swap size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_MEMORY)
-        )
-        .unwrap();
-        let swap_free_kb = register_int_gauge!(
-            Opts::new("swap_free_kb", "Free swap size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_MEMORY)
-        )
-        .unwrap();
+        let mem = MemoryMetrics {
+            total_kb: register_int_gauge!(
+                Opts::new("total_kb", "Total memory size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_MEMORY)
+            )
+            .unwrap(),
+            available_kb: register_int_gauge!(
+                Opts::new("available_kb", "Available memory size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_MEMORY)
+            )
+            .unwrap(),
+            swap_total_kb: register_int_gauge!(
+                Opts::new("swap_total_kb", "Total swap size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_MEMORY)
+            )
+            .unwrap(),
+            swap_free_kb: register_int_gauge!(
+                Opts::new("swap_free_kb", "Free swap size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_MEMORY)
+            )
+            .unwrap(),
+        };
 
         /* filesystem */
         let fs_total_kb = register_int_gauge_vec!(
@@ -179,10 +182,7 @@ impl Prom {
             ping,
             encoder,
             cpu,
-            memory_total_kb,
-            memory_available_kb,
-            swap_total_kb,
-            swap_free_kb,
+            mem,
             fs_total_kb,
             fs_available_kb,
             thermal_current_mc,
