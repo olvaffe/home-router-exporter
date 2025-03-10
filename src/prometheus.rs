@@ -26,6 +26,11 @@ pub struct MemoryMetrics {
     pub swap_free_kb: IntGauge,
 }
 
+pub struct FilesystemMetrics {
+    pub total_kb: IntGaugeVec,
+    pub available_kb: IntGaugeVec,
+}
+
 pub struct Prom {
     lin: linux::Linux,
     unbound: sync::Arc<unbound::Unbound>,
@@ -35,10 +40,7 @@ pub struct Prom {
 
     pub cpu: CpuMetrics,
     pub mem: MemoryMetrics,
-
-    /* filesystem */
-    pub fs_total_kb: IntGaugeVec,
-    pub fs_available_kb: IntGaugeVec,
+    pub fs: FilesystemMetrics,
 
     /* thermal */
     pub thermal_current_mc: IntGaugeVec,
@@ -99,21 +101,22 @@ impl Prom {
             .unwrap(),
         };
 
-        /* filesystem */
-        let fs_total_kb = register_int_gauge_vec!(
-            Opts::new("total_kb", "Total filesystem size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_FILESYSTEM),
-            &["src", "dst"]
-        )
-        .unwrap();
-        let fs_available_kb = register_int_gauge_vec!(
-            Opts::new("available_kb", "Available filesystem size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_FILESYSTEM),
-            &["src", "dst"]
-        )
-        .unwrap();
+        let fs = FilesystemMetrics {
+            total_kb: register_int_gauge_vec!(
+                Opts::new("total_kb", "Total filesystem size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_FILESYSTEM),
+                &["src", "dst"]
+            )
+            .unwrap(),
+            available_kb: register_int_gauge_vec!(
+                Opts::new("available_kb", "Available filesystem size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_FILESYSTEM),
+                &["src", "dst"]
+            )
+            .unwrap(),
+        };
 
         /* thermal */
         let thermal_current_mc = register_int_gauge_vec!(
@@ -183,8 +186,7 @@ impl Prom {
             encoder,
             cpu,
             mem,
-            fs_total_kb,
-            fs_available_kb,
+            fs,
             thermal_current_mc,
             io_read_kb,
             io_write_kb,

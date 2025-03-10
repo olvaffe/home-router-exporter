@@ -99,10 +99,10 @@ impl Linux {
         // TODO iterator
         if let Ok(mountinfos) = self.parse_self_mountinfo() {
             for info in mountinfos {
-                prom.fs_total_kb
+                prom.fs.total_kb
                     .with_label_values(&[&info.mount_source, &info.mount_point])
                     .set((info.total / 1024).try_into().unwrap());
-                prom.fs_available_kb
+                prom.fs.available_kb
                     .with_label_values(&[&info.mount_source, &info.mount_point])
                     .set((info.avail / 1024).try_into().unwrap());
             }
