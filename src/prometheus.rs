@@ -35,6 +35,11 @@ pub struct ThermalMetrics {
     pub current_mc: IntGaugeVec,
 }
 
+pub struct IoMetrics {
+    pub read_kb: IntGaugeVec,
+    pub write_kb: IntGaugeVec,
+}
+
 pub struct Prom {
     lin: linux::Linux,
     unbound: sync::Arc<unbound::Unbound>,
@@ -46,10 +51,7 @@ pub struct Prom {
     pub mem: MemoryMetrics,
     pub fs: FilesystemMetrics,
     pub thermal: ThermalMetrics,
-
-    /* io */
-    pub io_read_kb: IntGaugeVec,
-    pub io_write_kb: IntGaugeVec,
+    pub io: IoMetrics,
 
     /* net */
     pub net_rx_kb: IntGaugeVec,
@@ -130,21 +132,22 @@ impl Prom {
             .unwrap(),
         };
 
-        /* io */
-        let io_read_kb = register_int_gauge_vec!(
-            Opts::new("read_kb", "Total read size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_IO),
-            &["block"]
-        )
-        .unwrap();
-        let io_write_kb = register_int_gauge_vec!(
-            Opts::new("write_kb", "Total write size")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_IO),
-            &["block"]
-        )
-        .unwrap();
+        let io = IoMetrics {
+            read_kb: register_int_gauge_vec!(
+                Opts::new("read_kb", "Total read size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_IO),
+                &["block"]
+            )
+            .unwrap(),
+            write_kb: register_int_gauge_vec!(
+                Opts::new("write_kb", "Total write size")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_IO),
+                &["block"]
+            )
+            .unwrap(),
+        };
 
         /* net */
         let net_rx_kb = register_int_gauge_vec!(
@@ -191,8 +194,7 @@ impl Prom {
             mem,
             fs,
             thermal,
-            io_read_kb,
-            io_write_kb,
+            io,
             net_rx_kb,
             net_tx_kb,
             net_link_speed,

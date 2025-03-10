@@ -131,10 +131,12 @@ impl Linux {
         // TODO iterator
         if let Ok(diskstats) = self.parse_diskstats() {
             for stat in diskstats {
-                prom.io_read_kb
+                prom.io
+                    .read_kb
                     .with_label_values(&[&stat.name])
                     .set((stat.read_bytes / 1024).try_into().unwrap());
-                prom.io_write_kb
+                prom.io
+                    .write_kb
                     .with_label_values(&[&stat.name])
                     .set((stat.write_bytes / 1024).try_into().unwrap());
             }
