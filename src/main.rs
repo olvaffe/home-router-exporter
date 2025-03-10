@@ -8,12 +8,14 @@
 mod hyper;
 mod libc;
 mod linux;
+mod ping;
 mod prometheus;
 mod unbound;
 
 use std::net;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let procfs_path = "/proc";
     let sysfs_path = "/sys";
     let unbound_path = "/tmp/unbound.sock";
@@ -21,7 +23,8 @@ fn main() {
 
     let lin = linux::Linux::new(procfs_path, sysfs_path);
     let unbound = unbound::Unbound::new(unbound_path);
-    let prom = prometheus::Prom::new(lin, unbound);
+    let ping = ping::Ping::new();
+    let prom = prometheus::Prom::new(lin, unbound, ping);
 
-    hyper::run(hyper_addr, prom).unwrap();
+    hyper::run(hyper_addr, prom).await.unwrap();
 }
