@@ -9,6 +9,7 @@ pub struct Ping {
     notify: sync::Arc<tokio::sync::Notify>,
 
     hosts: sync::Arc<sync::Mutex<Vec<net::IpAddr>>>,
+    roundtrips: sync::Arc<sync::Mutex<Vec<Roundtrip>>>,
 }
 
 struct Roundtrip {
@@ -19,6 +20,7 @@ struct Roundtrip {
 async fn test_ping(
     notify: sync::Arc<tokio::sync::Notify>,
     hosts: sync::Arc<sync::Mutex<Vec<net::IpAddr>>>,
+    roundtrips: sync::Arc<sync::Mutex<Vec<Roundtrip>>>,
 ) -> Result<()> {
     let config_v4 = surge_ping::Config::builder().build();
     let client_v4 = surge_ping::Client::new(&config_v4)?;
@@ -54,11 +56,18 @@ async fn test_ping(
         seqno.0 += 1;
 
         let replies = futures::future::join_all(futures).await;
+
+        let mut temps = Vec::new();
         for (host, reply) in std::iter::zip(hosts, replies) {
-            if let Ok((_, dur)) = reply {
-                println!("{:?}: {:?}", host, dur);
-            }
+            let duration = match reply {
+                Ok((_, dur)) => dur,
+                Err(_) => time::Duration::ZERO,
+            };
+
+            temps.push(Roundtrip { host, duration })
         }
+
+        *roundtrips.lock().unwrap() = temps;
     }
 }
 
@@ -69,11 +78,22 @@ impl Ping {
             net::IpAddr::V4(net::Ipv4Addr::LOCALHOST),
             net::IpAddr::V6(net::Ipv6Addr::LOCALHOST),
         ]));
-        tokio::task::spawn(test_ping(notify.clone(), hosts.clone()));
-        Ping { notify, hosts }
+        let roundtrips = sync::Arc::new(sync::Mutex::new(Vec::new()));
+
+        tokio::task::spawn(test_ping(notify.clone(), hosts.clone(), roundtrips.clone()));
+
+        Ping {
+            notify,
+            hosts,
+            roundtrips,
+        }
     }
 
     pub fn collect(&self, _prom: &Prom) {
+        for roundtrip in self.roundtrips.lock().unwrap().iter() {
+            println!("{:?} roundtrip: {:?}", roundtrip.host, roundtrip.duration);
+        }
+
         self.notify.notify_one();
     }
 }
