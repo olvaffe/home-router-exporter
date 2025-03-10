@@ -5,13 +5,12 @@
 
 //! Home Router Exporter is a Prometheus exporter designed for home routers.
 
+mod collector;
 mod hyper;
 mod libc;
-mod linux;
-mod ping;
 mod prometheus;
-mod unbound;
 
+use collector::{linux, ping, unbound};
 use std::net;
 
 #[tokio::main]
