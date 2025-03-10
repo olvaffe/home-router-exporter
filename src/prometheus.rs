@@ -31,6 +31,10 @@ pub struct FilesystemMetrics {
     pub available_kb: IntGaugeVec,
 }
 
+pub struct ThermalMetrics {
+    pub current_mc: IntGaugeVec,
+}
+
 pub struct Prom {
     lin: linux::Linux,
     unbound: sync::Arc<unbound::Unbound>,
@@ -41,9 +45,7 @@ pub struct Prom {
     pub cpu: CpuMetrics,
     pub mem: MemoryMetrics,
     pub fs: FilesystemMetrics,
-
-    /* thermal */
-    pub thermal_current_mc: IntGaugeVec,
+    pub thermal: ThermalMetrics,
 
     /* io */
     pub io_read_kb: IntGaugeVec,
@@ -118,14 +120,15 @@ impl Prom {
             .unwrap(),
         };
 
-        /* thermal */
-        let thermal_current_mc = register_int_gauge_vec!(
-            Opts::new("current_mc", "Current temperature")
-                .namespace(NAMESPACE)
-                .subsystem(SUBSYS_THERMAL),
-            &["type"]
-        )
-        .unwrap();
+        let thermal = ThermalMetrics {
+            current_mc: register_int_gauge_vec!(
+                Opts::new("current_mc", "Current temperature")
+                    .namespace(NAMESPACE)
+                    .subsystem(SUBSYS_THERMAL),
+                &["type"]
+            )
+            .unwrap(),
+        };
 
         /* io */
         let io_read_kb = register_int_gauge_vec!(
@@ -187,7 +190,7 @@ impl Prom {
             cpu,
             mem,
             fs,
-            thermal_current_mc,
+            thermal,
             io_read_kb,
             io_write_kb,
             net_rx_kb,

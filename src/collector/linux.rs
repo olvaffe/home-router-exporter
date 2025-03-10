@@ -84,13 +84,17 @@ impl Linux {
 
     fn collect_mem(&self, prom: &Prom) {
         if let Ok(meminfo) = self.parse_meminfo() {
-            prom.mem.total_kb
+            prom.mem
+                .total_kb
                 .set(meminfo.mem_total_kb.try_into().unwrap());
-            prom.mem.available_kb
+            prom.mem
+                .available_kb
                 .set(meminfo.mem_avail_kb.try_into().unwrap());
-            prom.mem.swap_total_kb
+            prom.mem
+                .swap_total_kb
                 .set(meminfo.swap_total_kb.try_into().unwrap());
-            prom.mem.swap_free_kb
+            prom.mem
+                .swap_free_kb
                 .set(meminfo.swap_free_kb.try_into().unwrap());
         }
     }
@@ -99,10 +103,12 @@ impl Linux {
         // TODO iterator
         if let Ok(mountinfos) = self.parse_self_mountinfo() {
             for info in mountinfos {
-                prom.fs.total_kb
+                prom.fs
+                    .total_kb
                     .with_label_values(&[&info.mount_source, &info.mount_point])
                     .set((info.total / 1024).try_into().unwrap());
-                prom.fs.available_kb
+                prom.fs
+                    .available_kb
                     .with_label_values(&[&info.mount_source, &info.mount_point])
                     .set((info.avail / 1024).try_into().unwrap());
             }
@@ -113,7 +119,8 @@ impl Linux {
         // TODO iterator
         if let Ok(zones) = self.parse_class_thermal() {
             for zone in zones {
-                prom.thermal_current_mc
+                prom.thermal
+                    .current_mc
                     .with_label_values(&[&zone.name])
                     .set((zone.temp).try_into().unwrap());
             }
