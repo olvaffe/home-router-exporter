@@ -18,7 +18,7 @@ const SUBSYS_NET: &str = "net";
 pub struct Prom {
     lin: linux::Linux,
     unbound: sync::Arc<unbound::Unbound>,
-    ping: ping::Ping,
+    ping: sync::Arc<ping::Ping>,
 
     encoder: TextEncoder,
 
@@ -49,7 +49,11 @@ pub struct Prom {
 }
 
 impl Prom {
-    pub fn new(lin: linux::Linux, unbound: sync::Arc<unbound::Unbound>, ping: ping::Ping) -> Self {
+    pub fn new(
+        lin: linux::Linux,
+        unbound: sync::Arc<unbound::Unbound>,
+        ping: sync::Arc<ping::Ping>,
+    ) -> Self {
         let encoder = TextEncoder::new();
 
         /* cpu */

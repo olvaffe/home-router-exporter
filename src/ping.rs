@@ -6,10 +6,14 @@ use anyhow::Result;
 use std::{net, sync, time};
 
 pub struct Ping {
-    notify: sync::Arc<tokio::sync::Notify>,
+    client_v4: surge_ping::Client,
+    client_v6: surge_ping::Client,
+    ident: surge_ping::PingIdentifier,
+    payload: [u8; 56],
+    notify: tokio::sync::Notify,
 
-    hosts: sync::Arc<sync::Mutex<Vec<net::IpAddr>>>,
-    roundtrips: sync::Arc<sync::Mutex<Vec<Roundtrip>>>,
+    hosts: sync::Mutex<Vec<net::IpAddr>>,
+    roundtrips: sync::Mutex<Option<Vec<Roundtrip>>>,
 }
 
 struct Roundtrip {
@@ -17,32 +21,73 @@ struct Roundtrip {
     duration: time::Duration,
 }
 
-async fn test_ping(
-    notify: sync::Arc<tokio::sync::Notify>,
-    hosts: sync::Arc<sync::Mutex<Vec<net::IpAddr>>>,
-    roundtrips: sync::Arc<sync::Mutex<Vec<Roundtrip>>>,
-) -> Result<()> {
-    let config_v4 = surge_ping::Config::builder().build();
-    let client_v4 = surge_ping::Client::new(&config_v4)?;
+impl Ping {
+    pub fn new() -> sync::Arc<Self> {
+        let config_v4 = surge_ping::Config::builder().build();
+        let client_v4 = surge_ping::Client::new(&config_v4).unwrap();
 
-    let config_v6 = surge_ping::Config::builder()
-        .kind(surge_ping::ICMP::V6)
-        .build();
-    let client_v6 = surge_ping::Client::new(&config_v6)?;
+        let config_v6 = surge_ping::Config::builder()
+            .kind(surge_ping::ICMP::V6)
+            .build();
+        let client_v6 = surge_ping::Client::new(&config_v6).unwrap();
 
-    let ident = surge_ping::PingIdentifier(0);
-    let payload = [0u8; 56];
-    let mut seqno = surge_ping::PingSequence(0);
-    loop {
-        notify.notified().await;
+        let notify = tokio::sync::Notify::new();
 
-        let hosts = hosts.lock().unwrap().clone();
+        let hosts = sync::Mutex::new(vec![
+            net::IpAddr::V4(net::Ipv4Addr::LOCALHOST),
+            net::IpAddr::V6(net::Ipv6Addr::LOCALHOST),
+        ]);
+        let roundtrips = sync::Mutex::new(None);
+
+        let ping = Ping {
+            client_v4,
+            client_v6,
+            ident: surge_ping::PingIdentifier(0),
+            payload: [0; 56],
+            notify,
+            hosts,
+            roundtrips,
+        };
+        let ping = sync::Arc::new(ping);
+
+        let clone = ping.clone();
+        tokio::task::spawn(async move {
+            clone.task().await;
+        });
+
+        ping
+    }
+
+    pub fn collect(&self, _prom: &Prom) {
+        if let Some(roundtrips) = self.roundtrips.lock().unwrap().take() {
+            for roundtrip in roundtrips {
+                println!("{:?} roundtrip: {:?}", roundtrip.host, roundtrip.duration);
+            }
+        }
+
+        self.notify.notify_one();
+    }
+
+    async fn task(&self) {
+        let mut seqno = 0;
+        loop {
+            self.notify.notified().await;
+            *self.roundtrips.lock().unwrap() = self
+                .parse_roundtrips(surge_ping::PingSequence(seqno))
+                .await
+                .ok();
+            seqno += 1;
+        }
+    }
+
+    async fn parse_roundtrips(&self, seqno: surge_ping::PingSequence) -> Result<Vec<Roundtrip>> {
+        let hosts = self.hosts.lock().unwrap().clone();
 
         let mut pingers = Vec::new();
         for host in &hosts {
             let pinger = match host {
-                net::IpAddr::V4(_) => client_v4.pinger(*host, ident),
-                net::IpAddr::V6(_) => client_v6.pinger(*host, ident),
+                net::IpAddr::V4(_) => self.client_v4.pinger(*host, self.ident),
+                net::IpAddr::V6(_) => self.client_v6.pinger(*host, self.ident),
             }
             .await;
             pingers.push(pinger);
@@ -50,50 +95,21 @@ async fn test_ping(
 
         let mut futures = Vec::new();
         for pinger in &mut pingers {
-            futures.push(pinger.ping(seqno, &payload));
+            futures.push(pinger.ping(seqno, &self.payload));
         }
-
-        seqno.0 += 1;
 
         let replies = futures::future::join_all(futures).await;
 
-        let mut temps = Vec::new();
+        let mut roundtrips = Vec::new();
         for (host, reply) in std::iter::zip(hosts, replies) {
             let duration = match reply {
                 Ok((_, dur)) => dur,
                 Err(_) => time::Duration::ZERO,
             };
 
-            temps.push(Roundtrip { host, duration })
+            roundtrips.push(Roundtrip { host, duration })
         }
 
-        *roundtrips.lock().unwrap() = temps;
-    }
-}
-
-impl Ping {
-    pub fn new() -> Self {
-        let notify = sync::Arc::new(tokio::sync::Notify::new());
-        let hosts = sync::Arc::new(sync::Mutex::new(vec![
-            net::IpAddr::V4(net::Ipv4Addr::LOCALHOST),
-            net::IpAddr::V6(net::Ipv6Addr::LOCALHOST),
-        ]));
-        let roundtrips = sync::Arc::new(sync::Mutex::new(Vec::new()));
-
-        tokio::task::spawn(test_ping(notify.clone(), hosts.clone(), roundtrips.clone()));
-
-        Ping {
-            notify,
-            hosts,
-            roundtrips,
-        }
-    }
-
-    pub fn collect(&self, _prom: &Prom) {
-        for roundtrip in self.roundtrips.lock().unwrap().iter() {
-            println!("{:?} roundtrip: {:?}", roundtrip.host, roundtrip.duration);
-        }
-
-        self.notify.notify_one();
+        Ok(roundtrips)
     }
 }
