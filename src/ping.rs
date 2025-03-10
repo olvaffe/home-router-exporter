@@ -3,7 +3,7 @@
 
 use crate::prometheus::Prom;
 use anyhow::Result;
-use std::{net, sync, time};
+use std::{cmp, net, sync, time};
 
 pub struct Ping {
     client_v4: surge_ping::Client,
@@ -59,10 +59,26 @@ impl Ping {
         *self.hosts.lock().unwrap() = hosts;
     }
 
-    pub fn collect(&self, _prom: &Prom) {
+    pub fn collect(&self, prom: &Prom) {
         if let Some(roundtrips) = self.roundtrips.lock().unwrap().take() {
             for roundtrip in roundtrips {
-                println!("{:?} roundtrip: {:?}", roundtrip.host, roundtrip.duration);
+                let host = (|| {
+                    if let net::SocketAddr::V6(addr) = roundtrip.host {
+                        if addr.ip().is_unicast_link_local() {
+                            return format!("{}%{}", addr.ip(), addr.scope_id());
+                        }
+                    }
+                    roundtrip.host.ip().to_string()
+                })();
+                let latency = if roundtrip.duration.is_zero() {
+                    0
+                } else {
+                    cmp::max(roundtrip.duration.as_millis(), 1)
+                };
+
+                prom.net_gateway_latency
+                    .with_label_values(&[&host])
+                    .set(latency as _);
             }
         }
 

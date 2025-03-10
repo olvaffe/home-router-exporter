@@ -46,6 +46,7 @@ pub struct Prom {
     pub net_rx_kb: IntGaugeVec,
     pub net_tx_kb: IntGaugeVec,
     pub net_link_speed: IntGaugeVec,
+    pub net_gateway_latency: IntGaugeVec,
 }
 
 impl Prom {
@@ -153,6 +154,13 @@ impl Prom {
             &["netdev"]
         )
         .unwrap();
+        let net_gateway_latency = register_int_gauge_vec!(
+            Opts::new("gateway_latency", "Gateway latency")
+                .namespace(NAMESPACE)
+                .subsystem(SUBSYS_NET),
+            &["gateway"]
+        )
+        .unwrap();
 
         Prom {
             lin,
@@ -172,6 +180,7 @@ impl Prom {
             net_rx_kb,
             net_tx_kb,
             net_link_speed,
+            net_gateway_latency,
         }
     }
 
