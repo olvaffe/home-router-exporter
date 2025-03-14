@@ -9,6 +9,7 @@ mod collector;
 mod config;
 mod hyper;
 mod libc;
+mod metric;
 mod prometheus;
 
 use anyhow::Result;
@@ -47,6 +48,7 @@ async fn main() {
         return;
     }
     let prom = prom.unwrap();
+    prom.collect();
 
     if let Err(err) = hyper::run(prom).await {
         error!("failed to start web server: {err:?}");
