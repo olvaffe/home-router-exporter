@@ -97,7 +97,7 @@ fn parse_set(resp: &Nfgenmsg<NftaSet>) -> Option<NftSet> {
 
     let mut table = None;
     let mut name = None;
-    let mut _flags = None;
+    let mut flags = None;
     let mut key_type = None;
     for attr in resp.attrs.iter() {
         match attr.nla_type().nla_type() {
@@ -108,13 +108,18 @@ fn parse_set(resp: &Nfgenmsg<NftaSet>) -> Option<NftSet> {
                 name = attr.get_payload_as_with_len::<String>().ok();
             }
             NftaSet::Flags => {
-                _flags = attr.get_payload_as::<u32>().map(u32::swap_bytes).ok();
+                flags = attr.get_payload_as::<u32>().map(u32::swap_bytes).ok();
             }
             NftaSet::KeyType => {
                 key_type = attr.get_payload_as::<u32>().map(u32::swap_bytes).ok();
             }
             _ => (),
         }
+    }
+
+    const NFT_SET_ANONYMOUS: u32 = 1;
+    if flags.is_none_or(|flags| flags & NFT_SET_ANONYMOUS > 0) {
+        return None;
     }
 
     /* only ipv4 (7) and ipv6 (8) support */
