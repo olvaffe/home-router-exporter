@@ -252,7 +252,7 @@ impl Linux {
                         &set.family.to_string(),
                         &set.table,
                         &set.name,
-                        &counter.addr.to_string(),
+                        &counter.addr,
                     ])
                     .set((counter.bytes / 1024) as _)
             }

@@ -122,9 +122,12 @@ fn parse_set(resp: &Nfgenmsg<NftaSet>) -> Option<NftSet> {
         return None;
     }
 
-    /* only ipv4 (7) and ipv6 (8) support */
+    // defined by userspace nftables
+    const TYPE_IPADDR: u32 = 7;
+    const TYPE_IP6ADDR: u32 = 8;
+    const TYPE_ETHERADDR: u32 = 9;
     match key_type {
-        Some(7) | Some(8) => (),
+        Some(TYPE_IPADDR | TYPE_IP6ADDR | TYPE_ETHERADDR) => (),
         _ => return None,
     }
 
@@ -210,7 +213,7 @@ fn parse_set_elem_expr(expr: GenlAttrHandle<NftaExpr>) -> Option<(u64, u64)> {
     }
 }
 
-fn parse_set_elem_key(key: GenlAttrHandle<NftaData>) -> Option<net::IpAddr> {
+fn parse_set_elem_key(key: GenlAttrHandle<NftaData>) -> Option<String> {
     let mut value = None;
     for attr in key.iter() {
         if attr.nla_type().nla_type() == &NftaData::Value {
@@ -221,9 +224,14 @@ fn parse_set_elem_key(key: GenlAttrHandle<NftaData>) -> Option<net::IpAddr> {
 
     value.and_then(|value| {
         if let Ok(octets) = <&[u8; 4]>::try_from(value) {
-            Some(net::IpAddr::from(*octets))
+            Some(net::IpAddr::from(*octets).to_string())
+        } else if let Ok(mac) = <&[u8; 6]>::try_from(value) {
+            Some(format!(
+                "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+            ))
         } else if let Ok(segments) = <&[u8; 16]>::try_from(value) {
-            Some(net::IpAddr::from(*segments))
+            Some(net::IpAddr::from(*segments).to_string())
         } else {
             None
         }
@@ -269,7 +277,7 @@ fn parse_set_elem_list(
 }
 
 pub(super) struct NftSetCounter {
-    pub addr: net::IpAddr,
+    pub addr: String,
     pub bytes: u64,
 }
 
