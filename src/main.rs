@@ -28,14 +28,16 @@ fn init_logger() {
 
 #[tokio::main]
 async fn main() {
+    config::get();
     init_logger();
 
-    let collector = collector::Collector::new();
-    if let Err(err) = &collector {
-        error!("failed to initialize collector: {err:?}");
-        return;
-    }
-    let collector = collector.unwrap();
+    let collector = match collector::Collector::new() {
+        Ok(collector) => collector,
+        Err(err) => {
+            error!("failed to initialize collector: {err:?}");
+            return;
+        }
+    };
 
     if let Err(err) = hyper::run(collector).await {
         error!("failed to start web server: {err:?}");

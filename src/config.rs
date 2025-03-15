@@ -38,7 +38,7 @@ fn parse_args() -> Config {
         )
         .get_matches();
 
-    let debug = *matches.get_one::<bool>("debug").unwrap();
+    let debug = matches.get_flag("debug");
     let procfs_path = path::Path::new("/proc");
     let sysfs_path = path::Path::new("/sys");
     let kea_socket = path::PathBuf::from(matches.get_one::<String>("kea_socket").unwrap());

@@ -1,7 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use crate::{collector, config, metric};
+use crate::{collector, config};
 use anyhow::{Context, Result, anyhow};
 use hyper::{Request, Response, body::Bytes};
 use log::{debug, error, info};
@@ -24,10 +24,13 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
     fn call(&self, req: Request<hyper::body::Incoming>) -> Self::Future {
         let resp = match req.uri().path() {
             "/metrics" => {
-                let buf = self.collector.encode();
+                let buf = self.collector.collect();
 
                 Response::builder()
-                    .header(hyper::header::CONTENT_TYPE, metric::Encoder::content_type())
+                    .header(
+                        hyper::header::CONTENT_TYPE,
+                        collector::Collector::content_type(),
+                    )
                     .body(http_body_util::Full::new(Bytes::from(buf)))
                     .unwrap_or_else(|_| self.error_500.clone())
             }

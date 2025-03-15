@@ -299,7 +299,11 @@ impl Collector {
         })
     }
 
-    pub fn encode(&self) -> Vec<u8> {
+    pub fn content_type() -> &'static str {
+        "text/plain; version=0.0.4"
+    }
+
+    pub fn collect(&self) -> Vec<u8> {
         debug!("collecting metrics");
 
         let mut enc = metric::Encoder::new(NAMESPACE);
@@ -308,6 +312,6 @@ impl Collector {
         self.kea.collect(&self.metrics, &mut enc);
         self.unbound.collect(&self.metrics, &mut enc);
 
-        enc.take().into_bytes()
+        enc.into_string().into_bytes()
     }
 }

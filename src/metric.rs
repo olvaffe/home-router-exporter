@@ -128,20 +128,11 @@ pub struct Encoder {
 }
 
 impl Encoder {
-    pub fn content_type() -> &'static str {
-        "text/plain; version=0.0.4"
-    }
-
     pub fn new(namespace: &'static str) -> Self {
         Encoder {
             writer: String::new(),
             namespace,
         }
-    }
-
-    pub fn write<T: fmt::Display>(&mut self, info: &Info<0>, val: T) {
-        let mut menc = MetricEncoder::new(&mut self.writer, self.namespace, info);
-        menc.write(&[], val);
     }
 
     pub fn with_info<'a, 'b, const N: usize>(
@@ -151,7 +142,11 @@ impl Encoder {
         MetricEncoder::new(&mut self.writer, self.namespace, info)
     }
 
-    pub fn take(self) -> String {
+    pub fn write<T: fmt::Display>(&mut self, info: &Info<0>, val: T) {
+        self.with_info(info).write(&[], val);
+    }
+
+    pub fn into_string(self) -> String {
         self.writer
     }
 }
