@@ -58,14 +58,14 @@ pub struct Info<const N: usize> {
     pub label_keys: [&'static str; N],
 }
 
-pub struct MetricEncoder<'a, 'b, const N: usize> {
+pub struct MetricEncoder<'a, const N: usize> {
     writer: &'a mut String,
     name: String,
-    label_keys: &'b [&'static str; N],
+    label_keys: &'a [&'static str; N],
 }
 
-impl<'a, 'b, const N: usize> MetricEncoder<'a, 'b, N> {
-    fn new(writer: &'a mut String, namespace: &str, info: &'b Info<N>) -> Self {
+impl<'a, const N: usize> MetricEncoder<'a, N> {
+    fn new(writer: &'a mut String, namespace: &str, info: &'a Info<N>) -> Self {
         let name = format!(
             "{}_{}_{}{}{}",
             namespace,
@@ -135,10 +135,7 @@ impl Encoder {
         }
     }
 
-    pub fn with_info<'a, 'b, const N: usize>(
-        &'a mut self,
-        info: &'b Info<N>,
-    ) -> MetricEncoder<'a, 'b, N> {
+    pub fn with_info<'a, const N: usize>(&'a mut self, info: &'a Info<N>) -> MetricEncoder<'a, N> {
         MetricEncoder::new(&mut self.writer, self.namespace, info)
     }
 
