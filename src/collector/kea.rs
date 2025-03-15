@@ -1,8 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use crate::config;
-use crate::prometheus::Prom;
+use crate::{collector, config, metric};
 use anyhow::{Context, Result, anyhow};
 use serde_json::{self, Value, json};
 use std::{io, path, sync};
@@ -44,11 +43,11 @@ impl Kea {
         Ok(kea)
     }
 
-    pub fn collect(&self, prom: &Prom) {
+    pub fn collect(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) {
         if let Some(stats) = self.stats.lock().unwrap().take() {
-            prom.net.dhcp_rx_pkt.set(stats.pkt4_received as i64);
-            prom.net.dhcp_tx_pkt.set(stats.pkt4_sent as i64);
-            prom.net.dhcp_addr_fail.set(stats.v4_allocation_fail as i64);
+            enc.write(&metrics.net.dhcp_received, stats.pkt4_received);
+            enc.write(&metrics.net.dhcp_sent, stats.pkt4_sent);
+            enc.write(&metrics.net.dhcp_addr_fail, stats.v4_allocation_fail);
         }
 
         self.notify.notify_one();

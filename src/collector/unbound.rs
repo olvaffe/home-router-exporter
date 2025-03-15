@@ -1,8 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use crate::config;
-use crate::prometheus::Prom;
+use crate::{collector, config, metric};
 use anyhow::{Context, Result};
 use std::{io, path, sync};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -35,12 +34,10 @@ impl Unbound {
         unbound
     }
 
-    pub fn collect(&self, prom: &Prom) {
+    pub fn collect(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) {
         if let Some(stats) = self.stats.lock().unwrap().take() {
-            prom.net.dns_rx_pkt.set(stats.total_num_queries as _);
-            prom.net
-                .dns_rx_timeout
-                .set(stats.total_num_queries_timed_out as _);
+            enc.write(&metrics.net.dns_query, stats.total_num_queries);
+            enc.write(&metrics.net.dns_timeout, stats.total_num_queries_timed_out);
         }
 
         self.notify.notify_one();

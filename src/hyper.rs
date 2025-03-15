@@ -1,8 +1,7 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-use crate::config;
-use crate::prometheus::Prom;
+use crate::{collector, config, metric};
 use anyhow::{Context, Result, anyhow};
 use hyper::{Request, Response, body::Bytes};
 use log::{debug, error, info};
@@ -10,7 +9,7 @@ use std::{future, net, pin, sync};
 
 #[derive(Clone)]
 struct Svc {
-    prom: sync::Arc<Prom>,
+    collector: sync::Arc<collector::Collector>,
 
     error_404: Response<http_body_util::Full<Bytes>>,
     error_500: Response<http_body_util::Full<Bytes>>,
@@ -25,11 +24,10 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
     fn call(&self, req: Request<hyper::body::Incoming>) -> Self::Future {
         let resp = match req.uri().path() {
             "/metrics" => {
-                self.prom.collect();
-                let buf = self.prom.encode();
+                let buf = self.collector.encode();
 
                 Response::builder()
-                    .header(hyper::header::CONTENT_TYPE, self.prom.format_type())
+                    .header(hyper::header::CONTENT_TYPE, metric::Encoder::content_type())
                     .body(http_body_util::Full::new(Bytes::from(buf)))
                     .unwrap_or_else(|_| self.error_500.clone())
             }
@@ -54,7 +52,7 @@ async fn serve_connection(stream: tokio::net::TcpStream, svc: Svc) {
     }
 }
 
-pub async fn run(prom: Prom) -> Result<()> {
+pub async fn run(collector: collector::Collector) -> Result<()> {
     let addr = &config::get().hyper_addr;
     let addr: net::SocketAddr = addr
         .parse()
@@ -64,7 +62,7 @@ pub async fn run(prom: Prom) -> Result<()> {
         .with_context(|| format!("failed to bind to {addr:?}"))?;
 
     let svc = Svc {
-        prom: sync::Arc::new(prom),
+        collector: sync::Arc::new(collector),
         error_404: Response::builder()
             .status(404)
             .body(http_body_util::Full::new(Bytes::new()))?,

@@ -7,10 +7,9 @@ mod procfs;
 mod rtnetlink;
 mod sysfs;
 
-use crate::config;
-use crate::prometheus::Prom;
+use crate::{collector, config, metric};
 use anyhow::{Context, Result};
-use log::{debug, error};
+use log::error;
 use neli::{consts::socket::NlFamily, router::synchronous::NlRouter};
 use std::{fs, io, path};
 
@@ -70,36 +69,36 @@ impl Linux {
         Ok(lin)
     }
 
-    pub fn collect(&self, prom: &Prom) {
-        if let Err(err) = self.collect_cpu(prom) {
+    pub fn collect(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) {
+        if let Err(err) = self.collect_cpu(metrics, enc) {
             error!("failed to collect cpu metrics: {err:?}");
         }
 
-        if let Err(err) = self.collect_mem(prom) {
+        if let Err(err) = self.collect_mem(metrics, enc) {
             error!("failed to collect mem metrics: {err:?}");
         }
 
-        if let Err(err) = self.collect_fs(prom) {
+        if let Err(err) = self.collect_fs(metrics, enc) {
             error!("failed to collect fs metrics: {err:?}");
         }
 
-        if let Err(err) = self.collect_thermal(prom) {
+        if let Err(err) = self.collect_thermal(metrics, enc) {
             error!("failed to collect thermal metrics: {err:?}");
         }
 
-        if let Err(err) = self.collect_net_link_speed(prom) {
+        if let Err(err) = self.collect_net_link_speed(metrics, enc) {
             error!("failed to collect net link speed: {err:?}");
         }
 
-        if let Err(err) = self.collect_net_link_state(prom) {
+        if let Err(err) = self.collect_net_link_state(metrics, enc) {
             error!("failed to collect net link state: {err:?}");
         }
 
-        if let Err(err) = self.collect_net_route(prom) {
+        if let Err(err) = self.collect_net_route(metrics, enc) {
             error!("failed to collect net route: {err:?}");
         }
 
-        if let Err(err) = self.collect_net_nft(prom) {
+        if let Err(err) = self.collect_net_nft(metrics, enc) {
             let mut level = log::Level::Error;
             if let Some(err) = err.downcast_ref::<io::Error>() {
                 if err.kind() == io::ErrorKind::PermissionDenied {
@@ -111,150 +110,179 @@ impl Linux {
         }
     }
 
-    fn collect_cpu(&self, prom: &Prom) -> Result<()> {
+    fn collect_cpu(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
         let stats = self.parse_stat()?;
+
+        let mut menc = enc.with_info(&metrics.cpu.idle);
         for stat in stats {
             let stat = stat?;
 
-            let idle_ms = stat.idle_ticks * 1000 / self.sysconf_user_hz;
-            prom.cpu
-                .idle_ms
-                .with_label_values(&[&stat.cpu])
-                .set(idle_ms as _);
+            let idle_s = stat.idle_ticks as f64 / self.sysconf_user_hz as f64;
+            menc.write(&[&stat.cpu], idle_s);
         }
 
         Ok(())
     }
 
-    fn collect_mem(&self, prom: &Prom) -> Result<()> {
+    fn collect_mem(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
         let meminfo = self.parse_meminfo()?;
 
-        prom.mem.total_kb.set(meminfo.mem_total_kb as _);
-        prom.mem.available_kb.set(meminfo.mem_avail_kb as _);
-        prom.mem.swap_total_kb.set(meminfo.swap_total_kb as _);
-        prom.mem.swap_free_kb.set(meminfo.swap_free_kb as _);
+        enc.write(&metrics.mem.size, meminfo.mem_total_kb * 1024);
+        enc.write(&metrics.mem.available, meminfo.mem_avail_kb * 1024);
+        enc.write(&metrics.mem.swap_size, meminfo.swap_total_kb * 1024);
+        enc.write(&metrics.mem.swap_free, meminfo.swap_free_kb * 1024);
 
         Ok(())
     }
 
-    fn collect_fs(&self, prom: &Prom) -> Result<()> {
-        let mountinfos = self.parse_self_mountinfo()?;
-        for info in mountinfos {
-            let info = info?;
+    fn collect_fs(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
+        let mountinfos = self
+            .parse_self_mountinfo()?
+            .filter_map(|info| info.ok())
+            .map(|info| {
+                let iostats = self
+                    .parse_dev_block(&info.major_minor)
+                    .unwrap_or(sysfs::IoStats {
+                        read_bytes: 0,
+                        write_bytes: 0,
+                    });
+                (info, iostats)
+            })
+            .collect::<Vec<_>>();
 
-            prom.fs
-                .total_kb
-                .with_label_values(&[&info.mount_source, &info.mount_point])
-                .set((info.total / 1024) as _);
-            prom.fs
-                .available_kb
-                .with_label_values(&[&info.mount_source, &info.mount_point])
-                .set((info.avail / 1024) as _);
+        let mut menc = enc.with_info(&metrics.fs.size);
+        for (info, _) in mountinfos.iter() {
+            menc.write(&[&info.mount_source, &info.mount_point], info.total);
+        }
 
-            match self.parse_dev_block(&info.major_minor) {
-                Ok(iostats) => {
-                    prom.fs
-                        .read_kb
-                        .with_label_values(&[&info.mount_source, &info.mount_point])
-                        .set((iostats.read_bytes / 1024) as _);
-                    prom.fs
-                        .write_kb
-                        .with_label_values(&[&info.mount_source, &info.mount_point])
-                        .set((iostats.write_bytes / 1024) as _);
-                }
-                Err(err) => debug!("failed to collect iostats: {err:?}"),
-            }
+        menc = enc.with_info(&metrics.fs.available);
+        for (info, _) in mountinfos.iter() {
+            menc.write(&[&info.mount_source, &info.mount_point], info.avail);
+        }
+
+        menc = enc.with_info(&metrics.fs.read);
+        for (info, iostats) in mountinfos.iter() {
+            menc.write(&[&info.mount_source, &info.mount_point], iostats.read_bytes);
+        }
+
+        menc = enc.with_info(&metrics.fs.write);
+        for (info, iostats) in mountinfos.iter() {
+            menc.write(
+                &[&info.mount_source, &info.mount_point],
+                iostats.write_bytes,
+            );
         }
 
         Ok(())
     }
 
-    fn collect_thermal(&self, prom: &Prom) -> Result<()> {
+    fn collect_thermal(
+        &self,
+        metrics: &collector::Metrics,
+        enc: &mut metric::Encoder,
+    ) -> Result<()> {
         let zones = self.parse_class_thermal()?;
+
+        let mut menc = enc.with_info(&metrics.thermal.temperature);
         for zone in zones {
             let zone = zone?;
 
-            prom.thermal
-                .temp_mc
-                .with_label_values(&[&zone.name])
-                .set(zone.temp as _);
+            menc.write(&[&zone.name], zone.temp as f64 / 1000.0);
         }
 
         Ok(())
     }
 
-    fn collect_net_link_speed(&self, prom: &Prom) -> Result<()> {
+    fn collect_net_link_speed(
+        &self,
+        metrics: &collector::Metrics,
+        enc: &mut metric::Encoder,
+    ) -> Result<()> {
         let speeds = self.parse_ethtool()?;
+
+        let mut menc = enc.with_info(&metrics.net.link_speed);
         for speed in speeds {
             let speed = speed?;
 
-            prom.net
-                .link_speed_mbps
-                .with_label_values(&[&speed.name])
-                .set(speed.speed as _);
+            menc.write(&[&speed.name], speed.speed as f64 * 1000.0 * 1000.0 / 8.0);
         }
 
         Ok(())
     }
 
-    fn collect_net_link_state(&self, prom: &Prom) -> Result<()> {
-        let links = self.parse_links()?;
-        for link in links {
-            let link = link?;
+    fn collect_net_link_state(
+        &self,
+        metrics: &collector::Metrics,
+        enc: &mut metric::Encoder,
+    ) -> Result<()> {
+        let links = self
+            .parse_links()?
+            .filter_map(|link| link.ok())
+            .collect::<Vec<_>>();
 
-            prom.net
-                .link_up
-                .with_label_values(&[&link.name])
-                .set(link.admin_up as _);
-            prom.net
-                .link_operstate
-                .with_label_values(&[&link.name])
-                .set(link.operstate as _);
-            prom.net
-                .link_rx_kb
-                .with_label_values(&[&link.name])
-                .set((link.rx / 1024) as _);
-            prom.net
-                .link_tx_kb
-                .with_label_values(&[&link.name])
-                .set((link.tx / 1024) as _);
+        let mut menc = enc.with_info(&metrics.net.link_up);
+        for link in &links {
+            menc.write(&[&link.name], link.admin_up as u8);
+        }
+
+        menc = enc.with_info(&metrics.net.link_operstate);
+        for link in &links {
+            menc.write(&[&link.name], link.operstate);
+        }
+
+        menc = enc.with_info(&metrics.net.link_rx);
+        for link in &links {
+            menc.write(&[&link.name], link.rx);
+        }
+
+        menc = enc.with_info(&metrics.net.link_tx);
+        for link in &links {
+            menc.write(&[&link.name], link.tx);
         }
 
         Ok(())
     }
 
-    fn collect_net_route(&self, prom: &Prom) -> Result<()> {
+    fn collect_net_route(
+        &self,
+        metrics: &collector::Metrics,
+        enc: &mut metric::Encoder,
+    ) -> Result<()> {
         let routes = self.parse_routes()?;
+
+        let mut menc = enc.with_info(&metrics.net.route_default);
         for route in routes {
             let route = route?;
 
-            prom.net
-                .route_default
-                .with_label_values(&[&route.ip().to_string()])
-                .set(1);
+            menc.write(&[&route.ip().to_string()], 1);
         }
 
         Ok(())
     }
 
-    fn collect_net_nft(&self, prom: &Prom) -> Result<()> {
+    fn collect_net_nft(
+        &self,
+        metrics: &collector::Metrics,
+        enc: &mut metric::Encoder,
+    ) -> Result<()> {
         let sets = self.parse_nfnetlink()?;
+
+        let mut menc = enc.with_info(&metrics.net.nft_set_counter);
         for set in sets {
             let set = set?;
-
             let counters = self.parse_nft_set(&set)?;
             for counter in counters {
                 let counter = counter?;
 
-                prom.net
-                    .nft_set_counter_kb
-                    .with_label_values(&[
+                menc.write(
+                    &[
                         &set.family.to_string(),
                         &set.table,
                         &set.name,
                         &counter.addr,
-                    ])
-                    .set((counter.bytes / 1024) as _)
+                    ],
+                    counter.bytes,
+                );
             }
         }
 

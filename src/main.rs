@@ -9,12 +9,9 @@ mod collector;
 mod config;
 mod hyper;
 mod libc;
-mod prometheus;
+mod metric;
 
-use anyhow::Result;
-use collector::{kea, linux, unbound};
 use log::error;
-use prometheus::Prom;
 
 fn init_logger() {
     let module = "home_router_exporter";
@@ -29,26 +26,18 @@ fn init_logger() {
         .init();
 }
 
-fn init_prometheus() -> Result<Prom> {
-    let lin = linux::Linux::new()?;
-    let kea = kea::Kea::new()?;
-    let unbound = unbound::Unbound::new();
-
-    prometheus::Prom::new(lin, kea, unbound)
-}
-
 #[tokio::main]
 async fn main() {
     init_logger();
 
-    let prom = init_prometheus();
-    if let Err(err) = &prom {
-        error!("failed to initialize prometheus: {err:?}");
+    let collector = collector::Collector::new();
+    if let Err(err) = &collector {
+        error!("failed to initialize collector: {err:?}");
         return;
     }
-    let prom = prom.unwrap();
+    let collector = collector.unwrap();
 
-    if let Err(err) = hyper::run(prom).await {
+    if let Err(err) = hyper::run(collector).await {
         error!("failed to start web server: {err:?}");
     }
 }
