@@ -61,7 +61,7 @@ pub struct Info<const N: usize> {
 pub struct MetricEncoder<'a, const N: usize> {
     writer: &'a mut String,
     name: String,
-    label_keys: &'a [&'static str; N],
+    label_keys: &'a [&'a str; N],
 }
 
 impl<'a, const N: usize> MetricEncoder<'a, N> {
@@ -124,11 +124,11 @@ impl<'a, const N: usize> MetricEncoder<'a, N> {
 
 pub struct Encoder<'a> {
     writer: &'a mut String,
-    namespace: &'static str,
+    namespace: &'a str,
 }
 
 impl<'a> Encoder<'a> {
-    pub fn new(writer: &'a mut String, namespace: &'static str) -> Self {
+    pub fn new(writer: &'a mut String, namespace: &'a str) -> Self {
         Encoder { writer, namespace }
     }
 
