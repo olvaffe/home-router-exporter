@@ -285,6 +285,8 @@ pub struct Collector {
 
 impl Collector {
     pub fn new() -> Result<Self> {
+        debug!("creating collector");
+
         let lin = linux::Linux::new()?;
         let kea = kea::Kea::new()?;
         let unbound = unbound::Unbound::new();

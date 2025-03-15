@@ -11,10 +11,10 @@ mod hyper;
 mod libc;
 mod metric;
 
-use log::error;
+use log::{error, info};
 
 fn init_logger() {
-    let module = "home_router_exporter";
+    let module = env!("CARGO_CRATE_NAME");
     let module_filter = if config::get().debug {
         log::LevelFilter::Debug
     } else {
@@ -30,6 +30,8 @@ fn init_logger() {
 async fn main() {
     config::get();
     init_logger();
+
+    info!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     let collector = match collector::Collector::new() {
         Ok(collector) => collector,
