@@ -306,12 +306,13 @@ impl Collector {
     pub fn collect(&self) -> Vec<u8> {
         debug!("collecting metrics");
 
-        let mut enc = metric::Encoder::new(NAMESPACE);
+        let mut buf = String::with_capacity(4096);
+        let mut enc = metric::Encoder::new(&mut buf, NAMESPACE);
 
         self.lin.collect(&self.metrics, &mut enc);
         self.kea.collect(&self.metrics, &mut enc);
         self.unbound.collect(&self.metrics, &mut enc);
 
-        enc.into_string().into_bytes()
+        buf.into_bytes()
     }
 }

@@ -122,28 +122,21 @@ impl<'a, const N: usize> MetricEncoder<'a, N> {
     }
 }
 
-pub struct Encoder {
-    writer: String,
+pub struct Encoder<'a> {
+    writer: &'a mut String,
     namespace: &'static str,
 }
 
-impl Encoder {
-    pub fn new(namespace: &'static str) -> Self {
-        Encoder {
-            writer: String::new(),
-            namespace,
-        }
+impl<'a> Encoder<'a> {
+    pub fn new(writer: &'a mut String, namespace: &'static str) -> Self {
+        Encoder { writer, namespace }
     }
 
-    pub fn with_info<'a, const N: usize>(&'a mut self, info: &'a Info<N>) -> MetricEncoder<'a, N> {
+    pub fn with_info<'b, const N: usize>(&'b mut self, info: &'b Info<N>) -> MetricEncoder<'b, N> {
         MetricEncoder::new(&mut self.writer, self.namespace, info)
     }
 
     pub fn write<T: fmt::Display>(&mut self, info: &Info<0>, val: T) {
         self.with_info(info).write(&[], val);
-    }
-
-    pub fn into_string(self) -> String {
-        self.writer
     }
 }
