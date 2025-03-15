@@ -10,7 +10,7 @@ use neli::{
     router::synchronous::NlRouterReceiverHandle,
 };
 
-pub const ETHTOOL_GENL_NAME: &str = "ethtool";
+pub(super) const ETHTOOL_GENL_NAME: &str = "ethtool";
 const ETHTOOL_GENL_VERSION: u8 = 1;
 
 #[neli::neli_enum(serialized_type = "u8")]

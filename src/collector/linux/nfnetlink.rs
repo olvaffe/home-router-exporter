@@ -21,7 +21,7 @@ const NFNL_SUBSYS_NFTABLES: u8 = 10;
 #[derive(Debug, FromBytesWithInput, Size, ToBytes)]
 #[neli(from_bytes_bound = "T: NlAttrType")]
 #[neli(to_bytes_bound = "T: NlAttrType")]
-pub struct Nfgenmsg<T> {
+struct Nfgenmsg<T> {
     family: u8,
     version: u8,
     res_id: u16,

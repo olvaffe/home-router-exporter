@@ -7,7 +7,7 @@ use serde_json::{self, Value, json};
 use std::{io, path, sync};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-pub struct Kea {
+pub(super) struct Kea {
     path: &'static path::Path,
     req: Vec<u8>,
     stats: sync::Mutex<Option<Stats>>,

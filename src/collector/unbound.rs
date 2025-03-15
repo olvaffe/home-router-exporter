@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use std::{io, path, sync};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-pub struct Unbound {
+pub(super) struct Unbound {
     path: &'static path::Path,
     stats: sync::Mutex<Option<Stats>>,
     notify: tokio::sync::Notify,

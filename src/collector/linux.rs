@@ -13,7 +13,7 @@ use log::error;
 use neli::{consts::socket::NlFamily, router::synchronous::NlRouter};
 use std::{fs, io, path};
 
-pub struct Linux {
+pub(super) struct Linux {
     procfs_path: &'static path::Path,
     sysfs_path: &'static path::Path,
 

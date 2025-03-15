@@ -1,9 +1,9 @@
 // Copyright 2025 Google LLC
 // SPDX-License-Identifier: MIT
 
-pub mod kea;
-pub mod linux;
-pub mod unbound;
+mod kea;
+mod linux;
+mod unbound;
 
 use crate::metric;
 use anyhow::Result;
@@ -17,58 +17,58 @@ const SUBSYS_FILESYSTEM: &str = "filesystem";
 const SUBSYS_THERMAL: &str = "thermal";
 const SUBSYS_NETWORK: &str = "network";
 
-pub struct CpuMetrics {
-    pub idle: metric::Info<1>,
+struct CpuMetrics {
+    idle: metric::Info<1>,
 }
 
-pub struct MemoryMetrics {
-    pub size: metric::Info<0>,
-    pub available: metric::Info<0>,
-    pub swap_size: metric::Info<0>,
-    pub swap_free: metric::Info<0>,
+struct MemoryMetrics {
+    size: metric::Info<0>,
+    available: metric::Info<0>,
+    swap_size: metric::Info<0>,
+    swap_free: metric::Info<0>,
 }
 
-pub struct FilesystemMetrics {
-    pub size: metric::Info<2>,
-    pub available: metric::Info<2>,
-    pub read: metric::Info<2>,
-    pub write: metric::Info<2>,
+struct FilesystemMetrics {
+    size: metric::Info<2>,
+    available: metric::Info<2>,
+    read: metric::Info<2>,
+    write: metric::Info<2>,
 }
 
-pub struct ThermalMetrics {
-    pub temperature: metric::Info<1>,
+struct ThermalMetrics {
+    temperature: metric::Info<1>,
 }
 
-pub struct NetworkMetrics {
-    pub link_speed: metric::Info<1>,
+struct NetworkMetrics {
+    link_speed: metric::Info<1>,
 
-    pub link_up: metric::Info<1>,
-    pub link_operstate: metric::Info<1>,
-    pub link_rx: metric::Info<1>,
-    pub link_tx: metric::Info<1>,
+    link_up: metric::Info<1>,
+    link_operstate: metric::Info<1>,
+    link_rx: metric::Info<1>,
+    link_tx: metric::Info<1>,
 
-    pub route_default: metric::Info<1>,
+    route_default: metric::Info<1>,
 
-    pub nft_set_counter: metric::Info<4>,
+    nft_set_counter: metric::Info<4>,
 
-    pub dhcp_received: metric::Info<0>,
-    pub dhcp_sent: metric::Info<0>,
-    pub dhcp_addr_fail: metric::Info<0>,
+    dhcp_received: metric::Info<0>,
+    dhcp_sent: metric::Info<0>,
+    dhcp_addr_fail: metric::Info<0>,
 
-    pub dns_query: metric::Info<0>,
-    pub dns_timeout: metric::Info<0>,
+    dns_query: metric::Info<0>,
+    dns_timeout: metric::Info<0>,
 }
 
-pub struct Metrics {
-    pub cpu: CpuMetrics,
-    pub mem: MemoryMetrics,
-    pub fs: FilesystemMetrics,
-    pub thermal: ThermalMetrics,
-    pub net: NetworkMetrics,
+struct Metrics {
+    cpu: CpuMetrics,
+    mem: MemoryMetrics,
+    fs: FilesystemMetrics,
+    thermal: ThermalMetrics,
+    net: NetworkMetrics,
 }
 
 impl Metrics {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let cpu = CpuMetrics {
             idle: metric::Info {
                 subsys: SUBSYS_CPU,
