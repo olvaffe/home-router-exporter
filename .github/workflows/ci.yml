@@ -1,9 +1,13 @@
 name: ci
 on:
   push:
-    branches: ["main"]
+    branches:
+    - main
   pull_request:
-    branches: ["main"]
+    branches:
+    - main
+permissions:
+  contents: read
 jobs:
   build-stable:
     runs-on: ubuntu-latest
