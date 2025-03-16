@@ -2,34 +2,40 @@
 // SPDX-License-Identifier: MIT
 
 use crate::{collector, config};
-use anyhow::{Context, Result, anyhow};
-use hyper::{Request, Response, body::Bytes};
+use anyhow::{Context, Error, Result, anyhow};
+use hyper::{Request, Response, body, header, server::conn::http1, service};
 use log::{debug, error, info};
 use std::{future, net, pin, sync};
 
 #[derive(Clone)]
 struct Svc {
     collector: sync::Arc<collector::Collector>,
-
-    error_500: Response<http_body_util::Full<Bytes>>,
+    error_500: Response<http_body_util::Full<body::Bytes>>,
 }
 
-impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
-    type Response = Response<http_body_util::Full<Bytes>>;
-    type Error = hyper::Error;
-    type Future =
-        pin::Pin<Box<dyn future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+impl Svc {
+    fn new(collector: collector::Collector) -> Result<Self> {
+        let collector = sync::Arc::new(collector);
+        let error_500 = Response::builder()
+            .status(500)
+            .body(http_body_util::Full::default())?;
 
-    fn call(&self, req: Request<hyper::body::Incoming>) -> Self::Future {
-        let resp = match req.uri().path() {
+        Ok(Svc {
+            collector,
+            error_500,
+        })
+    }
+
+    fn handle_request(
+        &self,
+        req: Request<body::Incoming>,
+    ) -> Result<Response<http_body_util::Full<body::Bytes>>> {
+        match req.uri().path() {
             "/metrics" => {
                 let buf = self.collector.collect();
 
                 Response::builder()
-                    .header(
-                        hyper::header::CONTENT_TYPE,
-                        collector::Collector::content_type(),
-                    )
+                    .header(header::CONTENT_TYPE, collector::Collector::content_type())
                     .body(http_body_util::Full::from(buf))
             }
             _ => {
@@ -39,24 +45,34 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
                     .body(http_body_util::Full::default())
             }
         }
-        .or_else(|_| Ok(self.error_500.clone()));
+        .or_else(|_| Ok(self.error_500.clone()))
+    }
 
+    async fn task(self, stream: tokio::net::TcpStream) {
+        let io = hyper_util::rt::TokioIo::new(stream);
+        let conn = http1::Builder::new().serve_connection(io, self);
+
+        if let Err(err) = conn.await {
+            error!("server connection error: {err:?}");
+        }
+    }
+}
+
+impl service::Service<Request<body::Incoming>> for Svc {
+    type Response = Response<http_body_util::Full<body::Bytes>>;
+    type Error = Error;
+    type Future =
+        pin::Pin<Box<dyn future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn call(&self, req: Request<body::Incoming>) -> Self::Future {
+        let resp = self.handle_request(req);
         Box::pin(async { resp })
     }
 }
 
-async fn serve_connection(stream: tokio::net::TcpStream, svc: Svc) {
-    let io = hyper_util::rt::TokioIo::new(stream);
-
-    let http = hyper::server::conn::http1::Builder::new();
-    let conn = http.serve_connection(io, svc);
-
-    if let Err(err) = conn.await {
-        error!("server connection error: {err:?}");
-    }
-}
-
 pub async fn run(collector: collector::Collector) -> Result<()> {
+    let svc = Svc::new(collector).context("failed to create service")?;
+
     let addr = &config::get().hyper_addr;
     let addr: net::SocketAddr = addr
         .parse()
@@ -64,13 +80,6 @@ pub async fn run(collector: collector::Collector) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .with_context(|| format!("failed to bind to {addr:?}"))?;
-
-    let svc = Svc {
-        collector: sync::Arc::new(collector),
-        error_500: Response::builder()
-            .status(500)
-            .body(http_body_util::Full::default())?,
-    };
 
     info!("listening on {addr:?}");
 
@@ -86,6 +95,9 @@ pub async fn run(collector: collector::Collector) -> Result<()> {
             }
         };
 
-        tokio::task::spawn(serve_connection(stream, svc.clone()));
+        let clone = svc.clone();
+        tokio::task::spawn(async move {
+            clone.task(stream).await;
+        });
     }
 }
