@@ -7,17 +7,17 @@ use serde_json::{self, Value, json};
 use std::{io, path, sync};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+struct Stats {
+    pkt4_received: u64,
+    pkt4_sent: u64,
+    v4_allocation_fail: u64,
+}
+
 pub(super) struct Kea {
     path: &'static path::Path,
     req: Vec<u8>,
     stats: sync::Mutex<Option<Stats>>,
     notify: tokio::sync::Notify,
-}
-
-struct Stats {
-    pkt4_received: u64,
-    pkt4_sent: u64,
-    v4_allocation_fail: u64,
 }
 
 impl Kea {

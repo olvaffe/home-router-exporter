@@ -6,15 +6,15 @@ use anyhow::{Context, Result};
 use std::{io, path, sync};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+struct Stats {
+    total_num_queries: u64,
+    total_num_queries_timed_out: u64,
+}
+
 pub(super) struct Unbound {
     path: &'static path::Path,
     stats: sync::Mutex<Option<Stats>>,
     notify: tokio::sync::Notify,
-}
-
-struct Stats {
-    total_num_queries: u64,
-    total_num_queries_timed_out: u64,
 }
 
 impl Unbound {
