@@ -54,8 +54,6 @@ impl Unbound {
 
     async fn task(&self) {
         loop {
-            self.notify.notified().await;
-
             match self.parse_stats().await {
                 Ok(stats) => *self.stats.lock().unwrap() = Some(stats),
                 Err(err) => {
@@ -69,6 +67,8 @@ impl Unbound {
                     log::log!(level, "failed to collect unbound stats: {err:?}");
                 }
             }
+
+            self.notify.notified().await;
         }
     }
 

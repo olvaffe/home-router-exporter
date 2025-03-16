@@ -68,8 +68,6 @@ impl Kea {
 
     async fn task(&self) {
         loop {
-            self.notify.notified().await;
-
             match self.parse_stats().await {
                 Ok(stats) => *self.stats.lock().unwrap() = Some(stats),
                 Err(err) => {
@@ -83,6 +81,8 @@ impl Kea {
                     log::log!(level, "failed to collect kea stats: {err:?}");
                 }
             }
+
+            self.notify.notified().await;
         }
     }
 
