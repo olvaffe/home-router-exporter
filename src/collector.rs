@@ -305,7 +305,7 @@ impl Collector {
         "text/plain; version=0.0.4"
     }
 
-    pub fn collect(&self) -> Vec<u8> {
+    pub fn collect(&self) -> String {
         debug!("collecting metrics");
 
         let mut buf = String::with_capacity(4096);
@@ -315,6 +315,6 @@ impl Collector {
         self.kea.collect(&self.metrics, &mut enc);
         self.unbound.collect(&self.metrics, &mut enc);
 
-        buf.into_bytes()
+        buf
     }
 }
