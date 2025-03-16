@@ -1,7 +1,14 @@
 [package]
 name = "home-router-exporter"
 version = "0.1.0"
+authors = ["Chia-I Wu"]
 edition = "2024"
+rust-version = "1.85"
+description = "Prometheus exporter designed for home routers"
+repository = "https://github.com/olvaffe/home-router-exporter"
+license = "MIT"
+keywords = ["prometheus", "metrics", "exporter", "router"]
+categories = ["visualization"]
 
 [dependencies]
 anyhow = "1"
