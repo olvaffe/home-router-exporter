@@ -31,7 +31,7 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
                         hyper::header::CONTENT_TYPE,
                         collector::Collector::content_type(),
                     )
-                    .body(http_body_util::Full::new(Bytes::from(buf)))
+                    .body(http_body_util::Full::from(buf))
                     .unwrap_or_else(|_| self.error_500.clone())
             }
             _ => {
@@ -68,10 +68,10 @@ pub async fn run(collector: collector::Collector) -> Result<()> {
         collector: sync::Arc::new(collector),
         error_404: Response::builder()
             .status(404)
-            .body(http_body_util::Full::new(Bytes::new()))?,
+            .body(http_body_util::Full::default())?,
         error_500: Response::builder()
             .status(500)
-            .body(http_body_util::Full::new(Bytes::new()))?,
+            .body(http_body_util::Full::default())?,
     };
 
     info!("listening on {addr:?}");
