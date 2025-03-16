@@ -1,0 +1,42 @@
+name: tag
+on:
+  push:
+    tags:
+      - v*
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+        - build: x86-64
+          target: x86_64-unknown-linux-gnu
+          linker: x86_64-linux-gnu-gcc
+        - build: x86-64 static
+          target: x86_64-unknown-linux-musl
+          linker: x86_64-linux-gnu-gcc
+        - build: aarch64
+          target: aarch64-unknown-linux-gnu
+          linker: aarch64-linux-gnu-gcc
+          package: gcc-aarch64-linux-gnu
+        - build: aarch64 static
+          target: aarch64-unknown-linux-musl
+          linker: aarch64-linux-gnu-gcc
+          package: gcc-aarch64-linux-gnu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install cross compiler
+        if: matrix.package != ''
+        run: |
+          sudo apt update -y
+          sudo apt install -y ${{ matrix.package }}
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - name: Build crate
+        run: RUSTFLAGS="-C linker=${{ matrix.linker }}" cargo build --target ${{ matrix.target }} --release --verbose
