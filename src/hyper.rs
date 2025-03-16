@@ -35,7 +35,7 @@ impl Hyper {
         })
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(&self) -> Result<()> {
         let listener = tokio::net::TcpListener::bind(&self.addr)
             .await
             .with_context(|| format!("failed to bind to {:?}", self.addr))?;
@@ -61,7 +61,7 @@ impl Hyper {
         }
     }
 
-    async fn task(self, stream: tokio::net::TcpStream) {
+    async fn task(&self, stream: tokio::net::TcpStream) {
         let io = hyper_util::rt::TokioIo::new(stream);
         let conn = http1::Builder::new().serve_connection(io, self);
 
