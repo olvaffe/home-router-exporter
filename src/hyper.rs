@@ -7,58 +7,21 @@ use hyper::{Request, Response, body, header, server::conn::http1, service};
 use log::{debug, error, info};
 use std::{future, net, pin, sync};
 
-#[derive(Clone)]
-pub struct Hyper {
-    collector: sync::Arc<collector::Collector>,
-
-    addr: net::SocketAddr,
+pub struct HyperTask {
+    collector: collector::Collector,
     error_500: Response<http_body_util::Full<body::Bytes>>,
 }
 
-impl Hyper {
-    pub fn new(collector: collector::Collector) -> Result<Self> {
-        let collector = sync::Arc::new(collector);
-
-        let addr = &config::get().hyper_addr;
-        let addr: net::SocketAddr = addr
-            .parse()
-            .with_context(|| format!("invalid listen address {addr}"))?;
-
+impl HyperTask {
+    fn new(collector: collector::Collector) -> Result<Self> {
         let error_500 = Response::builder()
             .status(500)
             .body(http_body_util::Full::default())?;
 
-        Ok(Hyper {
+        Ok(HyperTask {
             collector,
-            addr,
             error_500,
         })
-    }
-
-    pub async fn run(&self) -> Result<()> {
-        let listener = tokio::net::TcpListener::bind(&self.addr)
-            .await
-            .with_context(|| format!("failed to bind to {:?}", self.addr))?;
-
-        info!("listening on {:?}", self.addr);
-
-        loop {
-            let stream = match listener.accept().await {
-                Ok((stream, client_addr)) => {
-                    debug!("new connection from {client_addr:?}");
-                    stream
-                }
-                Err(err) => {
-                    error!("failed to accept connection: {err:?}");
-                    continue;
-                }
-            };
-
-            let clone = self.clone();
-            tokio::task::spawn(async move {
-                clone.task(stream).await;
-            });
-        }
     }
 
     async fn task(&self, stream: tokio::net::TcpStream) {
@@ -93,7 +56,7 @@ impl Hyper {
     }
 }
 
-impl service::Service<Request<body::Incoming>> for Hyper {
+impl service::Service<Request<body::Incoming>> for HyperTask {
     type Response = Response<http_body_util::Full<body::Bytes>>;
     type Error = Error;
     type Future =
@@ -102,5 +65,49 @@ impl service::Service<Request<body::Incoming>> for Hyper {
     fn call(&self, req: Request<body::Incoming>) -> Self::Future {
         let resp = self.handle_request(req);
         Box::pin(async { resp })
+    }
+}
+
+pub struct Hyper {
+    addr: net::SocketAddr,
+    task: sync::Arc<HyperTask>,
+}
+
+impl Hyper {
+    pub fn new(collector: collector::Collector) -> Result<Self> {
+        let addr = &config::get().hyper_addr;
+        let addr: net::SocketAddr = addr
+            .parse()
+            .with_context(|| format!("invalid listen address {addr}"))?;
+
+        let task = sync::Arc::new(HyperTask::new(collector)?);
+
+        Ok(Hyper { addr, task })
+    }
+
+    pub async fn run(&self) -> Result<()> {
+        let listener = tokio::net::TcpListener::bind(&self.addr)
+            .await
+            .with_context(|| format!("failed to bind to {:?}", self.addr))?;
+
+        info!("listening on {:?}", self.addr);
+
+        loop {
+            let stream = match listener.accept().await {
+                Ok((stream, client_addr)) => {
+                    debug!("new connection from {client_addr:?}");
+                    stream
+                }
+                Err(err) => {
+                    error!("failed to accept connection: {err:?}");
+                    continue;
+                }
+            };
+
+            let task = self.task.clone();
+            tokio::task::spawn(async move {
+                task.task(stream).await;
+            });
+        }
     }
 }
