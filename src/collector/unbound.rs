@@ -36,7 +36,7 @@ impl Unbound {
     }
 
     pub fn collect(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) {
-        if let Some(stats) = self.stats.lock().unwrap().take() {
+        if let Some(stats) = &*self.stats.lock().unwrap() {
             enc.write(
                 &metrics.net.dns_query,
                 stats.total_num_queries,
