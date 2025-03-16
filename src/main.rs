@@ -41,7 +41,15 @@ async fn main() {
         }
     };
 
-    if let Err(err) = hyper::run(collector).await {
-        error!("failed to start web server: {err:?}");
+    let hyper = match hyper::Hyper::new(collector) {
+        Ok(hyper) => hyper,
+        Err(err) => {
+            error!("failed to initialize hyper: {err:?}");
+            return;
+        }
+    };
+
+    if let Err(err) = hyper.run().await {
+        error!("failed to run web server: {err:?}");
     }
 }
