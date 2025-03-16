@@ -11,7 +11,6 @@ use std::{future, net, pin, sync};
 struct Svc {
     collector: sync::Arc<collector::Collector>,
 
-    error_404: Response<http_body_util::Full<Bytes>>,
     error_500: Response<http_body_util::Full<Bytes>>,
 }
 
@@ -32,13 +31,15 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
                         collector::Collector::content_type(),
                     )
                     .body(http_body_util::Full::from(buf))
-                    .unwrap_or_else(|_| self.error_500.clone())
             }
             _ => {
                 debug!("incorrect uri {}", req.uri());
-                self.error_404.clone()
+                Response::builder()
+                    .status(404)
+                    .body(http_body_util::Full::default())
             }
-        };
+        }
+        .unwrap_or_else(|_| self.error_500.clone());
 
         Box::pin(async { Ok(resp) })
     }
@@ -66,9 +67,6 @@ pub async fn run(collector: collector::Collector) -> Result<()> {
 
     let svc = Svc {
         collector: sync::Arc::new(collector),
-        error_404: Response::builder()
-            .status(404)
-            .body(http_body_util::Full::default())?,
         error_500: Response::builder()
             .status(500)
             .body(http_body_util::Full::default())?,
