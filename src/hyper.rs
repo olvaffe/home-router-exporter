@@ -39,9 +39,9 @@ impl hyper::service::Service<Request<hyper::body::Incoming>> for Svc {
                     .body(http_body_util::Full::default())
             }
         }
-        .unwrap_or_else(|_| self.error_500.clone());
+        .or_else(|_| Ok(self.error_500.clone()));
 
-        Box::pin(async { Ok(resp) })
+        Box::pin(async { resp })
     }
 }
 
