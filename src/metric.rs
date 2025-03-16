@@ -133,7 +133,7 @@ impl<'a> Encoder<'a> {
     }
 
     pub fn with_info<'b, const N: usize>(&'b mut self, info: &'b Info<N>) -> MetricEncoder<'b, N> {
-        MetricEncoder::new(&mut self.writer, self.namespace, info)
+        MetricEncoder::new(self.writer, self.namespace, info)
     }
 
     pub fn write<T: fmt::Display>(&mut self, info: &Info<0>, val: T) {
