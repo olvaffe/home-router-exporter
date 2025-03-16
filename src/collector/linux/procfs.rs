@@ -7,6 +7,7 @@ use std::{
     io::{self, BufRead},
 };
 
+#[derive(Default)]
 pub(super) struct MemInfo {
     pub mem_total_kb: u64,
     pub mem_avail_kb: u64,

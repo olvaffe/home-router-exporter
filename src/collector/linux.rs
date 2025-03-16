@@ -125,7 +125,7 @@ impl Linux {
     }
 
     fn collect_mem(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
-        let meminfo = self.parse_meminfo()?;
+        let meminfo = self.parse_meminfo().unwrap_or_default();
 
         enc.write(&metrics.mem.size, meminfo.mem_total_kb * 1024, None);
         enc.write(&metrics.mem.available, meminfo.mem_avail_kb * 1024, None);
@@ -140,12 +140,7 @@ impl Linux {
             .parse_self_mountinfo()?
             .filter_map(|info| info.ok())
             .map(|info| {
-                let iostats = self
-                    .parse_dev_block(&info.major_minor)
-                    .unwrap_or(sysfs::IoStats {
-                        read_bytes: 0,
-                        write_bytes: 0,
-                    });
+                let iostats = self.parse_dev_block(&info.major_minor).unwrap_or_default();
                 (info, iostats)
             })
             .collect::<Vec<_>>();

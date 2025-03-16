@@ -4,6 +4,7 @@
 use anyhow::{Context, Result, anyhow};
 use std::{fs, io::BufRead};
 
+#[derive(Default)]
 pub(super) struct IoStats {
     pub read_bytes: u64,
     pub write_bytes: u64,
