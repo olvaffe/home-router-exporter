@@ -113,7 +113,7 @@ impl Linux {
     fn collect_cpu(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
         let stats = self.parse_stat()?;
 
-        let mut menc = enc.with_info(&metrics.cpu.idle);
+        let mut menc = enc.with_info(&metrics.cpu.idle, None);
         for stat in stats {
             let stat = stat?;
 
@@ -127,10 +127,10 @@ impl Linux {
     fn collect_mem(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
         let meminfo = self.parse_meminfo()?;
 
-        enc.write(&metrics.mem.size, meminfo.mem_total_kb * 1024);
-        enc.write(&metrics.mem.available, meminfo.mem_avail_kb * 1024);
-        enc.write(&metrics.mem.swap_size, meminfo.swap_total_kb * 1024);
-        enc.write(&metrics.mem.swap_free, meminfo.swap_free_kb * 1024);
+        enc.write(&metrics.mem.size, meminfo.mem_total_kb * 1024, None);
+        enc.write(&metrics.mem.available, meminfo.mem_avail_kb * 1024, None);
+        enc.write(&metrics.mem.swap_size, meminfo.swap_total_kb * 1024, None);
+        enc.write(&metrics.mem.swap_free, meminfo.swap_free_kb * 1024, None);
 
         Ok(())
     }
@@ -150,22 +150,22 @@ impl Linux {
             })
             .collect::<Vec<_>>();
 
-        let mut menc = enc.with_info(&metrics.fs.size);
+        let mut menc = enc.with_info(&metrics.fs.size, None);
         for (info, _) in mountinfos.iter() {
             menc.write(&[&info.mount_source, &info.mount_point], info.total);
         }
 
-        menc = enc.with_info(&metrics.fs.available);
+        menc = enc.with_info(&metrics.fs.available, None);
         for (info, _) in mountinfos.iter() {
             menc.write(&[&info.mount_source, &info.mount_point], info.avail);
         }
 
-        menc = enc.with_info(&metrics.fs.read);
+        menc = enc.with_info(&metrics.fs.read, None);
         for (info, iostats) in mountinfos.iter() {
             menc.write(&[&info.mount_source, &info.mount_point], iostats.read_bytes);
         }
 
-        menc = enc.with_info(&metrics.fs.write);
+        menc = enc.with_info(&metrics.fs.write, None);
         for (info, iostats) in mountinfos.iter() {
             menc.write(
                 &[&info.mount_source, &info.mount_point],
@@ -183,7 +183,7 @@ impl Linux {
     ) -> Result<()> {
         let zones = self.parse_class_thermal()?;
 
-        let mut menc = enc.with_info(&metrics.thermal.temperature);
+        let mut menc = enc.with_info(&metrics.thermal.temperature, None);
         for zone in zones {
             let zone = zone?;
 
@@ -200,7 +200,7 @@ impl Linux {
     ) -> Result<()> {
         let speeds = self.parse_ethtool()?;
 
-        let mut menc = enc.with_info(&metrics.net.link_speed);
+        let mut menc = enc.with_info(&metrics.net.link_speed, None);
         for speed in speeds {
             let speed = speed?;
 
@@ -220,22 +220,22 @@ impl Linux {
             .filter_map(|link| link.ok())
             .collect::<Vec<_>>();
 
-        let mut menc = enc.with_info(&metrics.net.link_up);
+        let mut menc = enc.with_info(&metrics.net.link_up, None);
         for link in &links {
             menc.write(&[&link.name], link.admin_up as u8);
         }
 
-        menc = enc.with_info(&metrics.net.link_operstate);
+        menc = enc.with_info(&metrics.net.link_operstate, None);
         for link in &links {
             menc.write(&[&link.name], link.operstate);
         }
 
-        menc = enc.with_info(&metrics.net.link_rx);
+        menc = enc.with_info(&metrics.net.link_rx, None);
         for link in &links {
             menc.write(&[&link.name], link.rx);
         }
 
-        menc = enc.with_info(&metrics.net.link_tx);
+        menc = enc.with_info(&metrics.net.link_tx, None);
         for link in &links {
             menc.write(&[&link.name], link.tx);
         }
@@ -250,7 +250,7 @@ impl Linux {
     ) -> Result<()> {
         let routes = self.parse_routes()?;
 
-        let mut menc = enc.with_info(&metrics.net.route_default);
+        let mut menc = enc.with_info(&metrics.net.route_default, None);
         for route in routes {
             let route = route?;
 
@@ -267,7 +267,7 @@ impl Linux {
     ) -> Result<()> {
         let sets = self.parse_nfnetlink()?;
 
-        let mut menc = enc.with_info(&metrics.net.nft_set_counter);
+        let mut menc = enc.with_info(&metrics.net.nft_set_counter, None);
         for set in sets {
             let set = set?;
             let counters = self.parse_nft_set(&set)?;

@@ -3,10 +3,11 @@
 
 use crate::{collector, config, metric};
 use anyhow::{Context, Result};
-use std::{io, path, sync};
+use std::{io, path, sync, time};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 struct Stats {
+    timestamp: time::SystemTime,
     total_num_queries: u64,
     total_num_queries_timed_out: u64,
 }
@@ -36,8 +37,16 @@ impl Unbound {
 
     pub fn collect(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) {
         if let Some(stats) = self.stats.lock().unwrap().take() {
-            enc.write(&metrics.net.dns_query, stats.total_num_queries);
-            enc.write(&metrics.net.dns_timeout, stats.total_num_queries_timed_out);
+            enc.write(
+                &metrics.net.dns_query,
+                stats.total_num_queries,
+                Some(stats.timestamp),
+            );
+            enc.write(
+                &metrics.net.dns_timeout,
+                stats.total_num_queries_timed_out,
+                Some(stats.timestamp),
+            );
         }
 
         self.notify.notify_one();
@@ -68,6 +77,8 @@ impl Unbound {
             .await
             .with_context(|| format!("failed to connect to {:?}", self.path))?;
 
+        let timestamp = time::SystemTime::now();
+
         sock.write_all("UBCT1 stats_noreset\n".as_bytes())
             .await
             .context("failed to write to unbound")?;
@@ -88,6 +99,7 @@ impl Unbound {
         }
 
         Ok(Stats {
+            timestamp,
             total_num_queries,
             total_num_queries_timed_out,
         })

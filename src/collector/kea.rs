@@ -4,10 +4,11 @@
 use crate::{collector, config, metric};
 use anyhow::{Context, Result, anyhow};
 use serde_json::{self, Value, json};
-use std::{io, path, sync};
+use std::{io, path, sync, time};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 struct Stats {
+    timestamp: time::SystemTime,
     pkt4_received: u64,
     pkt4_sent: u64,
     v4_allocation_fail: u64,
@@ -45,9 +46,21 @@ impl Kea {
 
     pub fn collect(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) {
         if let Some(stats) = self.stats.lock().unwrap().take() {
-            enc.write(&metrics.net.dhcp_received, stats.pkt4_received);
-            enc.write(&metrics.net.dhcp_sent, stats.pkt4_sent);
-            enc.write(&metrics.net.dhcp_addr_fail, stats.v4_allocation_fail);
+            enc.write(
+                &metrics.net.dhcp_received,
+                stats.pkt4_received,
+                Some(stats.timestamp),
+            );
+            enc.write(
+                &metrics.net.dhcp_sent,
+                stats.pkt4_sent,
+                Some(stats.timestamp),
+            );
+            enc.write(
+                &metrics.net.dhcp_addr_fail,
+                stats.v4_allocation_fail,
+                Some(stats.timestamp),
+            );
         }
 
         self.notify.notify_one();
@@ -77,6 +90,8 @@ impl Kea {
         let mut sock = tokio::net::UnixStream::connect(&self.path)
             .await
             .with_context(|| format!("failed to connect to {:?}", self.path))?;
+
+        let timestamp = time::SystemTime::now();
 
         sock.write_all(&self.req)
             .await
@@ -110,6 +125,7 @@ impl Kea {
             .unwrap_or_default();
 
         Ok(Stats {
+            timestamp,
             pkt4_received,
             pkt4_sent,
             v4_allocation_fail,

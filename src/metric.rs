@@ -3,7 +3,7 @@
 
 use std::{
     fmt::{self, Write},
-    iter,
+    iter, time,
 };
 
 pub enum Unit {
@@ -62,10 +62,16 @@ pub struct MetricEncoder<'a, const N: usize> {
     writer: &'a mut String,
     name: String,
     label_keys: &'a [&'a str; N],
+    timestamp: i64,
 }
 
 impl<'a, const N: usize> MetricEncoder<'a, N> {
-    fn new(writer: &'a mut String, namespace: &str, info: &'a Info<N>) -> Self {
+    fn new(
+        writer: &'a mut String,
+        namespace: &str,
+        info: &'a Info<N>,
+        timestamp: Option<time::SystemTime>,
+    ) -> Self {
         let name = format!(
             "{}_{}_{}{}{}",
             namespace,
@@ -74,10 +80,17 @@ impl<'a, const N: usize> MetricEncoder<'a, N> {
             info.unit.as_suffix(),
             info.ty.as_suffix()
         );
+        let label_keys = &info.label_keys;
+        let timestamp = timestamp.map_or(0, |ts| {
+            ts.duration_since(time::UNIX_EPOCH)
+                .map_or(0, |dur| dur.as_millis() as i64)
+        });
+
         let mut menc = MetricEncoder {
             writer,
             name,
-            label_keys: &info.label_keys,
+            label_keys,
+            timestamp,
         };
 
         menc.write_info(info);
@@ -127,7 +140,13 @@ impl<'a, const N: usize> MetricEncoder<'a, N> {
     pub fn write<T: fmt::Display>(&mut self, label_vals: &[&str; N], val: T) {
         let _ = self.writer.write_str(&self.name);
         self.write_labels(label_vals);
-        let _ = self.writer.write_fmt(format_args!(" {}\n", val));
+
+        let _ = if self.timestamp > 0 {
+            self.writer
+                .write_fmt(format_args!(" {} {}\n", val, self.timestamp))
+        } else {
+            self.writer.write_fmt(format_args!(" {}\n", val))
+        };
     }
 }
 
@@ -141,11 +160,20 @@ impl<'a> Encoder<'a> {
         Encoder { writer, namespace }
     }
 
-    pub fn with_info<'b, const N: usize>(&'b mut self, info: &'b Info<N>) -> MetricEncoder<'b, N> {
-        MetricEncoder::new(self.writer, self.namespace, info)
+    pub fn with_info<'b, const N: usize>(
+        &'b mut self,
+        info: &'b Info<N>,
+        timestamp: Option<time::SystemTime>,
+    ) -> MetricEncoder<'b, N> {
+        MetricEncoder::new(self.writer, self.namespace, info, timestamp)
     }
 
-    pub fn write<T: fmt::Display>(&mut self, info: &Info<0>, val: T) {
-        self.with_info(info).write(&[], val);
+    pub fn write<T: fmt::Display>(
+        &mut self,
+        info: &Info<0>,
+        val: T,
+        timestamp: Option<time::SystemTime>,
+    ) {
+        self.with_info(info, timestamp).write(&[], val);
     }
 }
