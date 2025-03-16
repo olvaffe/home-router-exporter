@@ -109,7 +109,16 @@ impl<'a, const N: usize> MetricEncoder<'a, N> {
                 let _ = self.writer.write_char(',');
             }
 
-            let _ = self.writer.write_fmt(format_args!("{}=\"{}\"", key, val));
+            let _ = self.writer.write_fmt(format_args!("{}=\"", key));
+            for c in val.chars() {
+                let _ = match c {
+                    '\\' => self.writer.write_str(r"\\"),
+                    '"' => self.writer.write_str(r#"\""#),
+                    '\n' => self.writer.write_str(r"\n"),
+                    c => self.writer.write_char(c),
+                };
+            }
+            let _ = self.writer.write_char('"');
         }
 
         let _ = self.writer.write_char('}');
