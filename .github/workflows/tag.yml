@@ -40,8 +40,8 @@ jobs:
           package: gcc-aarch64-linux-gnu
     runs-on: ubuntu-latest
     env:
-      BINARY: target/${{ matrix.target }}/release/home-router-exporter
-      ARCHIVE: home-router-exporter-${{ github.ref_name }}-${{ matrix.build }}.gz
+      SRCDIR: target/${{ matrix.target }}/release
+      DSTDIR: home-router-exporter-${{ github.ref_name }}-${{ matrix.build }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -58,6 +58,6 @@ jobs:
       - name: Build crate
         run: RUSTFLAGS="-C linker=${{ matrix.linker }}" cargo build --target ${{ matrix.target }} --release --verbose
       - name: Create archive
-        run: gzip -c "$BINARY" > "$ARCHIVE"
+        run: tar -zcf "$DSTDIR.tar.gz" --transform="s,^,$DSTDIR/," -C "$SRCDIR" home-router-exporter
       - name: Upload archive
-        run: gh release upload "$TAG" "$ARCHIVE"
+        run: gh release upload "$TAG" "$DSTDIR.tar.gz"
