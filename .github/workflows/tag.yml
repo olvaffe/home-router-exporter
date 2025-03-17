@@ -4,27 +4,44 @@ on:
     tags:
       - v*
 permissions:
-  contents: read
+  contents: write
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TAG: ${{ github.ref_name }}
 jobs:
+  create-draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Check crate version
+        run: grep -q "^version = \"${TAG#v}\"$" Cargo.toml || exit 1
+      - name: Create release draft
+        run: gh release create "$TAG" --draft --verify-tag --title "$TAG"
   build:
+    needs:
+      - create-draft
     strategy:
       matrix:
         include:
         - build: x86-64
           target: x86_64-unknown-linux-gnu
           linker: x86_64-linux-gnu-gcc
-        - build: x86-64 static
+        - build: x86-64-static
           target: x86_64-unknown-linux-musl
           linker: x86_64-linux-gnu-gcc
         - build: aarch64
           target: aarch64-unknown-linux-gnu
           linker: aarch64-linux-gnu-gcc
           package: gcc-aarch64-linux-gnu
-        - build: aarch64 static
+        - build: aarch64-static
           target: aarch64-unknown-linux-musl
           linker: aarch64-linux-gnu-gcc
           package: gcc-aarch64-linux-gnu
     runs-on: ubuntu-latest
+    env:
+      BINARY: target/${{ matrix.target }}/release/home-router-exporter
+      ARCHIVE: home-router-exporter-${{ github.ref_name }}-${{ matrix.build }}.gz
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -40,3 +57,7 @@ jobs:
           targets: ${{ matrix.target }}
       - name: Build crate
         run: RUSTFLAGS="-C linker=${{ matrix.linker }}" cargo build --target ${{ matrix.target }} --release --verbose
+      - name: Create archive
+        run: gzip -c "$BINARY" > "$ARCHIVE"
+      - name: Upload archive
+        run: gh release upload "$TAG" "$ARCHIVE"
