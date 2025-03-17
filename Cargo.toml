@@ -23,6 +23,9 @@ neli = "0.7.0-rc3"
 serde_json = "1"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync"] }
 
+[profile.release]
+strip = true
+
 [lints.clippy]
 multiple_unsafe_ops_per_block = "deny"
 undocumented_unsafe_blocks = "deny"
