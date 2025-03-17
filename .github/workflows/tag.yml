@@ -3,11 +3,13 @@ on:
   push:
     tags:
       - v*
+    branches:
+      - test-ci
 permissions:
   contents: write
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  TAG: ${{ github.ref_name }}
+  TAG: v0.1.0
 jobs:
   create-draft:
     runs-on: ubuntu-latest
@@ -41,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SRCDIR: target/${{ matrix.target }}/release
-      DSTDIR: home-router-exporter-${{ github.ref_name }}-${{ matrix.build }}
+      DSTDIR: home-router-exporter-v0.1.0-${{ matrix.build }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
