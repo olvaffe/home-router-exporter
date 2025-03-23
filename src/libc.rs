@@ -4,6 +4,16 @@
 use anyhow::{Context, Result};
 use std::{ffi, io, mem, path};
 
+pub fn sysconf_page_size() -> u64 {
+    // SAFETY: valid sysconf call with validation
+    let mut page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    if page_size <= 0 {
+        page_size = 4096;
+    }
+
+    page_size as _
+}
+
 pub fn sysconf_user_hz() -> u64 {
     // SAFETY: valid sysconf call with validation
     let mut user_hz = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };

@@ -20,6 +20,12 @@ pub(super) struct Stat {
     pub idle_ticks: u64,
 }
 
+#[derive(Default)]
+pub(super) struct VmStat {
+    pub pswpin: u64,
+    pub pswpout: u64,
+}
+
 pub(super) struct PidMountInfo {
     pub major_minor: String,
     pub mount_source: String,
@@ -176,6 +182,25 @@ impl super::Linux {
     pub(super) fn parse_stat(&self) -> Result<StatIter> {
         let reader = self.procfs_open("stat")?;
         Ok(StatIter { reader })
+    }
+
+    pub(super) fn parse_vmstat(&self) -> Result<VmStat> {
+        let reader = self.procfs_open("vmstat")?;
+
+        let mut pswpin = 0;
+        let mut pswpout = 0;
+        for line in reader.lines() {
+            let line = line.context("failed to read vmstat")?;
+
+            if let Some(val) = line.strip_prefix("pswpin ") {
+                pswpin = val.parse().unwrap_or(0);
+            } else if let Some(val) = line.strip_prefix("pswpout ") {
+                pswpout = val.parse().unwrap_or(0);
+                break;
+            }
+        }
+
+        Ok(VmStat { pswpin, pswpout })
     }
 
     pub(super) fn parse_self_mountinfo(&self) -> Result<PidMountInfoIter> {

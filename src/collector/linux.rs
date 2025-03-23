@@ -23,6 +23,7 @@ pub(super) struct Linux {
 
     ethtool_id: u16,
 
+    sysconf_page_size: u64,
     sysconf_user_hz: u64,
 }
 
@@ -63,6 +64,7 @@ impl Linux {
             nf_sock,
             genl_sock,
             ethtool_id,
+            sysconf_page_size: crate::libc::sysconf_page_size(),
             sysconf_user_hz: crate::libc::sysconf_user_hz(),
         };
 
@@ -74,8 +76,12 @@ impl Linux {
             error!("failed to collect cpu metrics: {err:?}");
         }
 
-        if let Err(err) = self.collect_mem(metrics, enc) {
-            error!("failed to collect mem metrics: {err:?}");
+        if let Err(err) = self.collect_mem_info(metrics, enc) {
+            error!("failed to collect mem info metrics: {err:?}");
+        }
+
+        if let Err(err) = self.collect_mem_vm(metrics, enc) {
+            error!("failed to collect mem vm metrics: {err:?}");
         }
 
         if let Err(err) = self.collect_fs(metrics, enc) {
@@ -124,13 +130,38 @@ impl Linux {
         Ok(())
     }
 
-    fn collect_mem(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
+    fn collect_mem_info(
+        &self,
+        metrics: &collector::Metrics,
+        enc: &mut metric::Encoder,
+    ) -> Result<()> {
         let meminfo = self.parse_meminfo().unwrap_or_default();
 
         enc.write(&metrics.mem.size, meminfo.mem_total_kb * 1024, None);
         enc.write(&metrics.mem.available, meminfo.mem_avail_kb * 1024, None);
         enc.write(&metrics.mem.swap_size, meminfo.swap_total_kb * 1024, None);
         enc.write(&metrics.mem.swap_free, meminfo.swap_free_kb * 1024, None);
+
+        Ok(())
+    }
+
+    fn collect_mem_vm(
+        &self,
+        metrics: &collector::Metrics,
+        enc: &mut metric::Encoder,
+    ) -> Result<()> {
+        let vmstat = self.parse_vmstat().unwrap_or_default();
+
+        enc.write(
+            &metrics.mem.swap_in,
+            vmstat.pswpin * self.sysconf_page_size,
+            None,
+        );
+        enc.write(
+            &metrics.mem.swap_out,
+            vmstat.pswpout * self.sysconf_page_size,
+            None,
+        );
 
         Ok(())
     }

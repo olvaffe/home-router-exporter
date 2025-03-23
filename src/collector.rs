@@ -26,6 +26,9 @@ struct MemoryMetrics {
     available: metric::Info<0>,
     swap_size: metric::Info<0>,
     swap_free: metric::Info<0>,
+
+    swap_in: metric::Info<0>,
+    swap_out: metric::Info<0>,
 }
 
 struct FilesystemMetrics {
@@ -111,6 +114,22 @@ impl Metrics {
                 help: "Free swap size",
                 unit: metric::Unit::Bytes,
                 ty: metric::Type::Gauge,
+                label_keys: [],
+            },
+            swap_in: metric::Info {
+                subsys: SUBSYS_MEMORY,
+                name: "swap_in",
+                help: "Total swap in size",
+                unit: metric::Unit::Bytes,
+                ty: metric::Type::Counter,
+                label_keys: [],
+            },
+            swap_out: metric::Info {
+                subsys: SUBSYS_MEMORY,
+                name: "swap_out",
+                help: "Total swap out size",
+                unit: metric::Unit::Bytes,
+                ty: metric::Type::Counter,
                 label_keys: [],
             },
         };
