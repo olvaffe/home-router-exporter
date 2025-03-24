@@ -119,12 +119,21 @@ impl Linux {
     fn collect_cpu(&self, metrics: &collector::Metrics, enc: &mut metric::Encoder) -> Result<()> {
         let stats = self.parse_stat()?;
 
+        let mut cpus = Vec::new();
         let mut menc = enc.with_info(&metrics.cpu.idle, None);
         for stat in stats {
             let stat = stat?;
 
             let idle_s = stat.idle_ticks as f64 / self.sysconf_user_hz as f64;
             menc.write(&[&stat.cpu], idle_s);
+
+            cpus.push(stat.cpu);
+        }
+
+        let mut menc = enc.with_info(&metrics.cpu.current_frequency, None);
+        for cpu in cpus {
+            let cpufreq = self.parse_cpufreq(&cpu).unwrap_or_default();
+            menc.write(&[&cpu], cpufreq.cur_freq * 1000);
         }
 
         Ok(())

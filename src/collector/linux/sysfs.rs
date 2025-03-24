@@ -10,6 +10,11 @@ pub(super) struct IoStats {
     pub write_bytes: u64,
 }
 
+#[derive(Default)]
+pub(super) struct CpuFreq {
+    pub cur_freq: u64,
+}
+
 pub(super) struct ThermalZone {
     pub name: String,
     pub temp: u64,
@@ -88,5 +93,15 @@ impl super::Linux {
             .context("failed to read iostats")?;
 
         parse_io_stats_line(&line)
+    }
+
+    pub(super) fn parse_cpufreq(&self, cpu: &str) -> Result<CpuFreq> {
+        let cur_freq_path = self.sysfs_path.join(format!(
+            "devices/system/cpu/{}/cpufreq/scaling_cur_freq",
+            cpu
+        ));
+        let cur_freq = super::read_u64(cur_freq_path)?;
+
+        Ok(CpuFreq { cur_freq })
     }
 }

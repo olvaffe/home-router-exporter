@@ -19,6 +19,8 @@ const SUBSYS_NETWORK: &str = "network";
 
 struct CpuMetrics {
     idle: metric::Info<1>,
+
+    current_frequency: metric::Info<1>,
 }
 
 struct MemoryMetrics {
@@ -79,6 +81,15 @@ impl Metrics {
                 help: "CPU idle time",
                 unit: metric::Unit::Seconds,
                 ty: metric::Type::Counter,
+                label_keys: ["cpu"],
+            },
+
+            current_frequency: metric::Info {
+                subsys: SUBSYS_CPU,
+                name: "current_frequency",
+                help: "CPU current frequency",
+                unit: metric::Unit::Hertz,
+                ty: metric::Type::Gauge,
                 label_keys: ["cpu"],
             },
         };

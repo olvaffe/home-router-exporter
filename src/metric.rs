@@ -9,6 +9,7 @@ use std::{
 pub enum Unit {
     Bytes,
     Celsius,
+    Hertz,
     Info,
     None,
     Packets,
@@ -20,6 +21,7 @@ impl Unit {
         match self {
             Unit::Bytes => "_bytes",
             Unit::Celsius => "_celsius",
+            Unit::Hertz => "_hertz",
             Unit::Info => "_info",
             Unit::None => "",
             Unit::Packets => "_packets",
